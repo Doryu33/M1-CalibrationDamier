@@ -1,7 +1,8 @@
-#include <opencv2/opencv.hpp>
-#include <opencv2/calib3d/calib3d.hpp>
-#include <opencv2/highgui/highgui.hpp>
-#include <opencv2/imgproc/imgproc.hpp>
+#include <opencv2/imgproc.hpp>
+#include <opencv2/calib3d.hpp>
+#include <opencv2/highgui.hpp>
+#include "custom.cpp"
+
 #include <stdio.h>
 #include <iostream>
 
@@ -18,7 +19,6 @@ int main(int argc, const char **argv)
     CHECKERBOARD[0] = atoi(argv[1]);
     CHECKERBOARD[1] = atoi(argv[2]);
   }
-  
   // Creating vector to store vectors of 3D points for each checkerboard image
   std::vector<std::vector<cv::Point3f> > objpoints;
   
@@ -39,8 +39,39 @@ int main(int argc, const char **argv)
   
   VideoCapture capture;
   capture.open(0);
-  if (!capture.isOpened())
-    return -1;
+  if (!capture.isOpened()){
+    std::cout << "Pas de camera. Ouverture de l'imagee: " << argv[1] << "\n";
+    frame = imread( argv[1], 1 );
+    if ( !frame.data )
+    {
+        printf("No image data \n");
+        return -1;
+    }
+    //Detect chessboard inner corner
+      cv::cvtColor(frame,gray,cv::COLOR_BGR2GRAY);
+      // Finding checker board corners
+      // If desired number of corners are found in the image then success = true
+      success = findChessboardCorners(gray, cv::Size(CHECKERBOARD[0], CHECKERBOARD[1]), corner_pts, CALIB_CB_ADAPTIVE_THRESH | CALIB_CB_FAST_CHECK | CALIB_CB_NORMALIZE_IMAGE);
+      
+      // If desired number of corner are detected, we refine the pixel coordinates and display them on the images of checker board
+      if(success) {
+        cv::TermCriteria criteria(cv::TermCriteria::MAX_ITER + cv::TermCriteria::EPS, 30, 0.001);
+        
+        // refining pixel coordinates for given 2d points.
+        cv::cornerSubPix(gray,corner_pts,cv::Size(11,11), cv::Size(-1,-1),criteria);
+        
+        // Displaying the detected corner points on the checker board
+        cv::drawChessboardCorners(frame, cv::Size(CHECKERBOARD[0], CHECKERBOARD[1]), corner_pts, success);
+        
+        objpoints.push_back(objp);
+        imgpoints.push_back(corner_pts);
+        //Display the result
+      }
+      flip(frame, frame, 1);
+      cv::imshow("Image",frame);
+    waitKey(0);
+    return 0;
+  }
   else {
     capture.read(frame);
     while(key!='q') {
@@ -61,8 +92,8 @@ int main(int argc, const char **argv)
         // Displaying the detected corner points on the checker board
         cv::drawChessboardCorners(frame, cv::Size(CHECKERBOARD[0], CHECKERBOARD[1]), corner_pts, success);
         
-        objpoints.push_back(objp);
-        imgpoints.push_back(corner_pts);
+        //objpoints.push_back(objp);
+        //imgpoints.push_back(corner_pts);
         //Display the result
       }
       flip(frame, frame, 1);
