@@ -552,6 +552,10 @@ bool findChessboardCornersCustom(InputArray image_, Size pattern_size, OutputArr
     icvBinarizationHistogramBased(thresh_img_new); // process image in-place
     SHOW("New binarization", thresh_img_new);
 
+    namedWindow("Image: After binarization", WINDOW_NORMAL);
+    cv::imshow("Image: After binarization",thresh_img_new);
+    cv::resizeWindow("Image: After binarization", 600, 600);
+
     if (flags & CALIB_CB_FAST_CHECK)
     {
         //perform new method for checking chessboard using a binary image.
@@ -577,6 +581,13 @@ bool findChessboardCornersCustom(InputArray image_, Size pattern_size, OutputArr
         //USE BINARY IMAGE COMPUTED USING icvBinarizationHistogramBased METHOD
         dilate( thresh_img_new, thresh_img_new, Mat(), Point(-1, -1), 1 );
 
+        //seulement pour la premiere dilation
+        if(dilations==0){
+            namedWindow("Image: After dilation", WINDOW_NORMAL);
+            cv::imshow("Image: After dilation",thresh_img_new);
+            cv::resizeWindow("Image: After dilation",600,600);
+        }
+
         // So we can find rectangles that go to the edge, we draw a white line around the image edge.
         // Otherwise FindContours will miss those clipped rectangle contours.
         // The border color will be the image mean, because otherwise we risk screwing up filters like cvSmooth()...
@@ -584,10 +595,29 @@ bool findChessboardCornersCustom(InputArray image_, Size pattern_size, OutputArr
 
         detector.reset();
         detector.generateQuadsCustom(thresh_img_new, flags);
+
+        
+
         DPRINTF("Quad count: %d/%d", detector.all_quads_count, (pattern_size.width/2+1)*(pattern_size.height/2+1));
+        printf("Quad count: %d/%d \n", detector.all_quads_count, (pattern_size.width/2+1)*(pattern_size.height/2+1));
         SHOW_QUADS("New quads", thresh_img_new, &detector.all_quads[0], detector.all_quads_count);
         if (detector.processQuadsCustom(out_corners, prev_sqr_size))
         {
+            //------------------------
+            //On boucle sur les out_corners trouvées et on affiche leur coordonnées
+            for (size_t i = 0; i < out_corners.size(); i++)
+            {
+                cout<<"Corner "<< i <<" " << out_corners[i] << "\n";
+            }
+            //Creation d'une nouvelle image pour pouvoir dessiner le rectangle en couleur
+            Mat img2;
+            cv::cvtColor(thresh_img_new, img2, 8);
+            //On dessine un rectangle pour delimiter la zone du patern trouve
+            rectangle(img2, out_corners[0], out_corners[out_corners.size()-1], Scalar(0,0,255), 8, LINE_8);
+            namedWindow("Image: After rectangle", WINDOW_NORMAL);
+            cv::imshow("Image: After rectangle",img2);
+            cv::resizeWindow("Image: After rectangle",600,600);
+            //------------------------
             found = true;
             break;
         }

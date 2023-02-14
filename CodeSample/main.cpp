@@ -14,6 +14,7 @@ int CHECKERBOARD[2]{3,24};
 
 int main(int argc, const char **argv)
 {
+
   int key = 0;
   if(argc==3) {
     CHECKERBOARD[0] = atoi(argv[1]);
@@ -68,7 +69,9 @@ int main(int argc, const char **argv)
         //Display the result
       }
       flip(frame, frame, 1);
+      namedWindow("Image", WINDOW_NORMAL);
       cv::imshow("Image",frame);
+      cv::resizeWindow("Image", 600, 600);
     waitKey(0);
     return 0;
   }
