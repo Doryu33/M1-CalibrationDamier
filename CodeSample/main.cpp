@@ -40,7 +40,7 @@ int main(int argc, const char **argv)
   VideoCapture capture;
   capture.open(0);
   if (!capture.isOpened()){
-    std::cout << "Pas de camera. Ouverture de l'imagee: " << argv[1] << "\n";
+    std::cout << "Pas de camera. Ouverture de l'image: " << argv[1] << "\n";
     frame = imread( argv[1], 1 );
     if ( !frame.data )
     {
@@ -51,7 +51,7 @@ int main(int argc, const char **argv)
       cv::cvtColor(frame,gray,cv::COLOR_BGR2GRAY);
       // Finding checker board corners
       // If desired number of corners are found in the image then success = true
-      success = findChessboardCorners(gray, cv::Size(CHECKERBOARD[0], CHECKERBOARD[1]), corner_pts, CALIB_CB_ADAPTIVE_THRESH | CALIB_CB_FAST_CHECK | CALIB_CB_NORMALIZE_IMAGE);
+      success = findChessboardCornersCustom(gray, cv::Size(CHECKERBOARD[0], CHECKERBOARD[1]), corner_pts, CALIB_CB_ADAPTIVE_THRESH | CALIB_CB_FAST_CHECK | CALIB_CB_NORMALIZE_IMAGE);
       
       // If desired number of corner are detected, we refine the pixel coordinates and display them on the images of checker board
       if(success) {
@@ -80,7 +80,7 @@ int main(int argc, const char **argv)
       cv::cvtColor(frame,gray,cv::COLOR_BGR2GRAY);
       // Finding checker board corners
       // If desired number of corners are found in the image then success = true
-      success = cv::findChessboardCorners(gray, cv::Size(CHECKERBOARD[0], CHECKERBOARD[1]), corner_pts, CALIB_CB_ADAPTIVE_THRESH | CALIB_CB_FAST_CHECK | CALIB_CB_NORMALIZE_IMAGE);
+      success = findChessboardCornersCustom(gray, cv::Size(CHECKERBOARD[0], CHECKERBOARD[1]), corner_pts, CALIB_CB_ADAPTIVE_THRESH | CALIB_CB_FAST_CHECK | CALIB_CB_NORMALIZE_IMAGE);
       
       // If desired number of corner are detected, we refine the pixel coordinates and display them on the images of checker board
       if(success) {
