@@ -1,4 +1,5 @@
 #include "custom.hpp"
+#include <vector>
 
 #ifdef DEBUG_CHESSBOARD
 #include "opencv2/highgui.hpp"
@@ -8,6 +9,8 @@
 #define DPRINTF(...)
 #endif
 
+using namespace cv;
+using namespace std;
 
 /***************************************************************************************************/
 //COMPUTE INTENSITY HISTOGRAM OF INPUT IMAGE
@@ -26,7 +29,6 @@ static void icvGetIntensityHistogram256(const Mat& img, ArrayContainer& piHist)
         }
     }
 }
-
 /***************************************************************************************************/
 //SMOOTH HISTOGRAM USING WINDOW OF SIZE 2*iWidth+1
 template<int iWidth_, typename ArrayContainer>
@@ -49,6 +51,31 @@ static void icvSmoothHistogram256(const ArrayContainer& piHist, ArrayContainer& 
         }
         piHistSmooth[i] = iSmooth/(2*iWidth+1);
     }
+}
+
+/***************************************************************************************************/
+//COMPUTE FAST HISTOGRAM GRADIENT
+template<typename ArrayContainer>
+static void icvGradientOfHistogram256(const ArrayContainer& piHist, ArrayContainer& piHistGrad)
+{
+    CV_DbgAssert(piHist.size() == 256);
+    CV_DbgAssert(piHistGrad.size() == 256);
+    piHistGrad[0] = 0;
+    int prev_grad = 0;
+    for (int i = 1; i < 255; ++i)
+    {
+        int grad = piHist[i-1] - piHist[i+1];
+        if (std::abs(grad) < 100)
+        {
+            if (prev_grad == 0)
+                grad = -100;
+            else
+                grad = prev_grad;
+        }
+        piHistGrad[i] = grad;
+        prev_grad = grad;
+    }
+    piHistGrad[255] = 0;
 }
 
 /***************************************************************************************************/
@@ -196,34 +223,183 @@ static void icvBinarizationHistogramBased(Mat & img)
     }
 }
 
-/***************************************************************************************************/
-//COMPUTE FAST HISTOGRAM GRADIENT
-template<typename ArrayContainer>
-static void icvGradientOfHistogram256(const ArrayContainer& piHist, ArrayContainer& piHistGrad)
+#ifdef DEBUG_CHESSBOARD
+static void SHOW(const std::string & name, Mat & img)
 {
-    CV_DbgAssert(piHist.size() == 256);
-    CV_DbgAssert(piHistGrad.size() == 256);
-    piHistGrad[0] = 0;
-    int prev_grad = 0;
-    for (int i = 1; i < 255; ++i)
+    imshow(name, img);
+#if DEBUG_CHESSBOARD_TIMEOUT
+    waitKey(DEBUG_CHESSBOARD_TIMEOUT);
+#else
+    while ((uchar)waitKey(0) != 'q') {}
+#endif
+}
+static void SHOW_QUADS(const std::string & name, const Mat & img_, ChessBoardQuad * quads, int quads_count)
+{
+    Mat img = img_.clone();
+    if (img.channels() == 1)
+        cvtColor(img, img, COLOR_GRAY2BGR);
+    for (int i = 0; i < quads_count; ++i)
     {
-        int grad = piHist[i-1] - piHist[i+1];
-        if (std::abs(grad) < 100)
+        ChessBoardQuad & quad = quads[i];
+        for (int j = 0; j < 4; ++j)
         {
-            if (prev_grad == 0)
-                grad = -100;
-            else
-                grad = prev_grad;
+            line(img, quad.corners[j]->pt, quad.corners[(j + 1) & 3]->pt, Scalar(0, 240, 0), 1, LINE_AA);
         }
-        piHistGrad[i] = grad;
-        prev_grad = grad;
     }
-    piHistGrad[255] = 0;
+    imshow(name, img);
+#if DEBUG_CHESSBOARD_TIMEOUT
+    waitKey(DEBUG_CHESSBOARD_TIMEOUT);
+#else
+    while ((uchar)waitKey(0) != 'q') {}
+#endif
+}
+#else
+#define SHOW(...)
+#define SHOW_QUADS(...)
+#endif
+
+/** This structure stores information about the chessboard corner.*/
+struct ChessBoardCorner
+{
+    cv::Point2f pt;  // Coordinates of the corner
+    int row;         // Board row index
+    int count;       // Number of neighbor corners
+    struct ChessBoardCorner* neighbors[4]; // Neighbor corners
+
+    ChessBoardCorner(const cv::Point2f& pt_ = cv::Point2f()) :
+        pt(pt_), row(0), count(0)
+    {
+        neighbors[0] = neighbors[1] = neighbors[2] = neighbors[3] = NULL;
+    }
+
+    float sumDist(int& n_) const
+    {
+        float sum = 0;
+        int n = 0;
+        for (int i = 0; i < 4; ++i)
+        {
+            if (neighbors[i])
+            {
+                sum += sqrt(normL2Sqr<float>(neighbors[i]->pt - pt));
+                n++;
+            }
+        }
+        n_ = n;
+        return sum;
+    }
+};
+
+/** This structure stores information about the chessboard quadrangle.*/
+struct ChessBoardQuad
+{
+    int count;      // Number of quad neighbors
+    int group_idx;  // quad group ID
+    int row, col;   // row and column of this quad
+    bool ordered;   // true if corners/neighbors are ordered counter-clockwise
+    float edge_len; // quad edge len, in pix^2
+    // neighbors and corners are synced, i.e., neighbor 0 shares corner 0
+    ChessBoardCorner *corners[4]; // Coordinates of quad corners
+    struct ChessBoardQuad *neighbors[4]; // Pointers of quad neighbors
+
+    ChessBoardQuad(int group_idx_ = -1) :
+        count(0),
+        group_idx(group_idx_),
+        row(0), col(0),
+        ordered(0),
+        edge_len(0)
+    {
+        corners[0] = corners[1] = corners[2] = corners[3] = NULL;
+        neighbors[0] = neighbors[1] = neighbors[2] = neighbors[3] = NULL;
+    }
+};
+
+class ChessBoardDetector
+{
+public:
+    cv::Mat binarized_image;
+    Size pattern_size;
+
+    cv::AutoBuffer<ChessBoardQuad> all_quads;
+    cv::AutoBuffer<ChessBoardCorner> all_corners;
+
+    int all_quads_count;
+
+    ChessBoardDetector(const Size& pattern_size_) :
+        pattern_size(pattern_size_),
+        all_quads_count(0)
+    {
+    }
+
+    void reset()
+    {
+        all_quads.deallocate();
+        all_corners.deallocate();
+        all_quads_count = 0;
+    }
+
+    void generateQuads(const cv::Mat& image_, int flags);
+
+    bool processQuads(std::vector<cv::Point2f>& out_corners, int &prev_sqr_size);
+
+    void findQuadNeighbors();
+
+    void findConnectedQuads(std::vector<ChessBoardQuad*>& out_group, int group_idx);
+
+    int checkQuadGroup(std::vector<ChessBoardQuad*>& quad_group, std::vector<ChessBoardCorner*>& out_corners);
+
+    int cleanFoundConnectedQuads(std::vector<ChessBoardQuad*>& quad_group);
+
+    int orderFoundConnectedQuads(std::vector<ChessBoardQuad*>& quads);
+
+    void orderQuad(ChessBoardQuad& quad, ChessBoardCorner& corner, int common);
+
+#ifdef ENABLE_TRIM_COL_ROW
+    void trimCol(std::vector<ChessBoardQuad*>& quads, int col, int dir);
+    void trimRow(std::vector<ChessBoardQuad*>& quads, int row, int dir);
+#endif
+
+    int addOuterQuad(ChessBoardQuad& quad, std::vector<ChessBoardQuad*>& quads);
+
+    void removeQuadFromGroup(std::vector<ChessBoardQuad*>& quads, ChessBoardQuad& q0);
+
+    bool checkBoardMonotony(const std::vector<cv::Point2f>& corners);
+};
+
+
+// does a fast check if a chessboard is in the input image. This is a workaround to
+// a problem of cvFindChessboardCorners being slow on images with no chessboard
+// - src: input binary image
+// - size: chessboard size
+// Returns 1 if a chessboard can be in this image and findChessboardCorners should be called,
+// 0 if there is no chessboard, -1 in case of error
+int checkChessboardBinary(const cv::Mat & img, const cv::Size & size)
+{
+    CV_Assert(img.channels() == 1 && img.depth() == CV_8U);
+
+    Mat white = img.clone();
+    Mat black = img.clone();
+
+    int result = 0;
+    for ( int erosion_count = 0; erosion_count <= 3; erosion_count++ )
+    {
+        if ( 1 == result )
+            break;
+
+        if ( 0 != erosion_count ) // first iteration keeps original images
+        {
+            erode(white, white, Mat(), Point(-1, -1), 1);
+            dilate(black, black, Mat(), Point(-1, -1), 1);
+        }
+
+        vector<pair<float, int> > quads;
+        fillQuads(white, black, 128, 128, quads);
+        if (checkQuads(quads, size))
+            result = 1;
+    }
+    return result;
 }
 
-
-bool findChessboardCornersCustom(InputArray image_, Size pattern_size,
-                           OutputArray corners_, int flags)
+bool findChessboardCornersCustom(InputArray image_, Size pattern_size, OutputArray corners_, int flags)
 {
     //CV_INSTRUMENT_REGION();  //Inutile dans notre cas, permet de faire des calculs de performances
 
