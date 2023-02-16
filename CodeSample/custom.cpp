@@ -13,6 +13,70 @@ using namespace std;
 
 #define MAX_CONTOUR_APPROX  7
 
+//Necessaire pour eviter les conflits de version
+template<typename _AccTp> static inline _AccTp normL2SqrCustom(const Point_<int>& pt);
+template<typename _AccTp> static inline _AccTp normL2SqrCustom(const Point_<int64>& pt);
+template<typename _AccTp> static inline _AccTp normL2SqrCustom(const Point_<float>& pt);
+template<typename _AccTp> static inline _AccTp normL2SqrCustom(const Point_<double>& pt);
+
+template<typename _Tp, typename _AccTp> static inline
+_AccTp normL2SqrCustom(const _Tp* a, int n)
+{
+    _AccTp s = 0;
+    int i=0;
+#if CV_ENABLE_UNROLLED
+    for( ; i <= n - 4; i += 4 )
+    {
+        _AccTp v0 = a[i], v1 = a[i+1], v2 = a[i+2], v3 = a[i+3];
+        s += v0*v0 + v1*v1 + v2*v2 + v3*v3;
+    }
+#endif
+    for( ; i < n; i++ )
+    {
+        _AccTp v = a[i];
+        s += v*v;
+    }
+    return s;
+}
+
+template<typename _Tp, typename _AccTp> static inline
+_AccTp normL2SqrCustom(const _Tp* a, const _Tp* b, int n)
+{
+    _AccTp s = 0;
+    int i= 0;
+#if CV_ENABLE_UNROLLED
+    for(; i <= n - 4; i += 4 )
+    {
+        _AccTp v0 = _AccTp(a[i] - b[i]), v1 = _AccTp(a[i+1] - b[i+1]), v2 = _AccTp(a[i+2] - b[i+2]), v3 = _AccTp(a[i+3] - b[i+3]);
+        s += v0*v0 + v1*v1 + v2*v2 + v3*v3;
+    }
+#endif
+    for( ; i < n; i++ )
+    {
+        _AccTp v = _AccTp(a[i] - b[i]);
+        s += v*v;
+    }
+    return s;
+}
+
+static inline float normL2SqrCustom(const float* a, const float* b, int n)
+{
+    float s = 0.f;
+    for( int i = 0; i < n; i++ )
+    {
+        float v = a[i] - b[i];
+        s += v*v;
+    }
+    return s;
+}
+
+template<> inline double normL2SqrCustom<double>(const Point_<int>& pt) { return pt.dot(pt); }
+template<> inline float normL2SqrCustom<float>(const Point_<float>& pt) { return pt.dot(pt); }
+template<> inline double normL2SqrCustom<double>(const Point_<float>& pt) { return pt.ddot(pt); }
+template<> inline double normL2SqrCustom<double>(const Point_<double>& pt) { return pt.ddot(pt); }
+
+
+
 struct QuadCountour {
     Point pt[4];
     int parent_contour;
@@ -22,6 +86,113 @@ struct QuadCountour {
     {
         pt[0] = pt_[0]; pt[1] = pt_[1]; pt[2] = pt_[2]; pt[3] = pt_[3];
     }
+};
+
+/** This structure stores information about the chessboard corner.*/
+struct ChessBoardCorner
+{
+    cv::Point2f pt;  // Coordinates of the corner
+    int row;         // Board row index
+    int count;       // Number of neighbor corners
+    struct ChessBoardCorner* neighbors[4]; // Neighbor corners
+
+    ChessBoardCorner(const cv::Point2f& pt_ = cv::Point2f()) :
+        pt(pt_), row(0), count(0)
+    {
+        neighbors[0] = neighbors[1] = neighbors[2] = neighbors[3] = NULL;
+    }
+
+    float sumDist(int& n_) const
+    {
+        float sum = 0;
+        int n = 0;
+        for (int i = 0; i < 4; ++i)
+        {
+            if (neighbors[i])
+            {
+                sum += sqrt(normL2SqrCustom<float>(neighbors[i]->pt - pt));
+                n++;
+            }
+        }
+        n_ = n;
+        return sum;
+    }
+};
+
+/** This structure stores information about the chessboard quadrangle.*/
+struct ChessBoardQuad
+{
+    int count;      // Number of quad neighbors
+    int group_idx;  // quad group ID
+    int row, col;   // row and column of this quad
+    bool ordered;   // true if corners/neighbors are ordered counter-clockwise
+    float edge_len; // quad edge len, in pix^2
+    // neighbors and corners are synced, i.e., neighbor 0 shares corner 0
+    ChessBoardCorner *corners[4]; // Coordinates of quad corners
+    struct ChessBoardQuad *neighbors[4]; // Pointers of quad neighbors
+
+    ChessBoardQuad(int group_idx_ = -1) :
+        count(0),
+        group_idx(group_idx_),
+        row(0), col(0),
+        ordered(0),
+        edge_len(0)
+    {
+        corners[0] = corners[1] = corners[2] = corners[3] = NULL;
+        neighbors[0] = neighbors[1] = neighbors[2] = neighbors[3] = NULL;
+    }
+};
+
+class ChessBoardDetector
+{
+public:
+    cv::Mat binarized_image;
+    Size pattern_size;
+
+    cv::AutoBuffer<ChessBoardQuad> all_quads;
+    cv::AutoBuffer<ChessBoardCorner> all_corners;
+
+    int all_quads_count;
+
+    ChessBoardDetector(const Size& pattern_size_) :
+        pattern_size(pattern_size_),
+        all_quads_count(0)
+    {
+    }
+
+    void reset()
+    {
+        all_quads.deallocate();
+        all_corners.deallocate();
+        all_quads_count = 0;
+    }
+
+    void generateQuadsCustom(const cv::Mat& image_, int flags);
+
+    bool processQuadsCustom(std::vector<cv::Point2f>& out_corners, int &prev_sqr_size);
+
+    void findQuadNeighborsCustom();
+
+    void findConnectedQuadsCustom(std::vector<ChessBoardQuad*>& out_group, int group_idx);
+
+    int checkQuadGroupCustom(std::vector<ChessBoardQuad*>& quad_group, std::vector<ChessBoardCorner*>& out_corners);
+
+    int cleanFoundConnectedQuadsCustom(std::vector<ChessBoardQuad*>& quad_group);
+
+    int orderFoundConnectedQuadsCustom(std::vector<ChessBoardQuad*>& quads);
+
+    void orderQuadCustom(ChessBoardQuad& quad, ChessBoardCorner& corner, int common);
+
+#ifdef ENABLE_TRIM_COL_ROW
+    void trimCol(std::vector<ChessBoardQuad*>& quads, int col, int dir);
+    void trimRow(std::vector<ChessBoardQuad*>& quads, int row, int dir);
+#endif
+
+    int addOuterQuadCustom(ChessBoardQuad& quad, std::vector<ChessBoardQuad*>& quads);
+
+    void removeQuadFromGroupCustom(std::vector<ChessBoardQuad*>& quads, ChessBoardQuad& q0);
+
+    bool checkBoardMonotonyCustom(const std::vector<cv::Point2f>& corners);
 };
 
 /***************************************************************************************************/
@@ -270,113 +441,6 @@ static void SHOW_QUADS(const std::string & name, const Mat & img_, ChessBoardQua
 #define SHOW_QUADS(...)
 #endif
 
-/** This structure stores information about the chessboard corner.*/
-struct ChessBoardCorner
-{
-    cv::Point2f pt;  // Coordinates of the corner
-    int row;         // Board row index
-    int count;       // Number of neighbor corners
-    struct ChessBoardCorner* neighbors[4]; // Neighbor corners
-
-    ChessBoardCorner(const cv::Point2f& pt_ = cv::Point2f()) :
-        pt(pt_), row(0), count(0)
-    {
-        neighbors[0] = neighbors[1] = neighbors[2] = neighbors[3] = NULL;
-    }
-
-    float sumDist(int& n_) const
-    {
-        float sum = 0;
-        int n = 0;
-        for (int i = 0; i < 4; ++i)
-        {
-            if (neighbors[i])
-            {
-                sum += sqrt(normL2Sqr<float>(neighbors[i]->pt - pt));
-                n++;
-            }
-        }
-        n_ = n;
-        return sum;
-    }
-};
-
-/** This structure stores information about the chessboard quadrangle.*/
-struct ChessBoardQuad
-{
-    int count;      // Number of quad neighbors
-    int group_idx;  // quad group ID
-    int row, col;   // row and column of this quad
-    bool ordered;   // true if corners/neighbors are ordered counter-clockwise
-    float edge_len; // quad edge len, in pix^2
-    // neighbors and corners are synced, i.e., neighbor 0 shares corner 0
-    ChessBoardCorner *corners[4]; // Coordinates of quad corners
-    struct ChessBoardQuad *neighbors[4]; // Pointers of quad neighbors
-
-    ChessBoardQuad(int group_idx_ = -1) :
-        count(0),
-        group_idx(group_idx_),
-        row(0), col(0),
-        ordered(0),
-        edge_len(0)
-    {
-        corners[0] = corners[1] = corners[2] = corners[3] = NULL;
-        neighbors[0] = neighbors[1] = neighbors[2] = neighbors[3] = NULL;
-    }
-};
-
-class ChessBoardDetector
-{
-public:
-    cv::Mat binarized_image;
-    Size pattern_size;
-
-    cv::AutoBuffer<ChessBoardQuad> all_quads;
-    cv::AutoBuffer<ChessBoardCorner> all_corners;
-
-    int all_quads_count;
-
-    ChessBoardDetector(const Size& pattern_size_) :
-        pattern_size(pattern_size_),
-        all_quads_count(0)
-    {
-    }
-
-    void reset()
-    {
-        all_quads.deallocate();
-        all_corners.deallocate();
-        all_quads_count = 0;
-    }
-
-    void generateQuadsCustom(const cv::Mat& image_, int flags);
-
-    bool processQuadsCustom(std::vector<cv::Point2f>& out_corners, int &prev_sqr_size);
-
-    void findQuadNeighborsCustom();
-
-    void findConnectedQuadsCustom(std::vector<ChessBoardQuad*>& out_group, int group_idx);
-
-    int checkQuadGroupCustom(std::vector<ChessBoardQuad*>& quad_group, std::vector<ChessBoardCorner*>& out_corners);
-
-    int cleanFoundConnectedQuadsCustom(std::vector<ChessBoardQuad*>& quad_group);
-
-    int orderFoundConnectedQuadsCustom(std::vector<ChessBoardQuad*>& quads);
-
-    void orderQuadCustom(ChessBoardQuad& quad, ChessBoardCorner& corner, int common);
-
-#ifdef ENABLE_TRIM_COL_ROW
-    void trimCol(std::vector<ChessBoardQuad*>& quads, int col, int dir);
-    void trimRow(std::vector<ChessBoardQuad*>& quads, int row, int dir);
-#endif
-
-    int addOuterQuadCustom(ChessBoardQuad& quad, std::vector<ChessBoardQuad*>& quads);
-
-    void removeQuadFromGroupCustom(std::vector<ChessBoardQuad*>& quads, ChessBoardQuad& q0);
-
-    bool checkBoardMonotonyCustom(const std::vector<cv::Point2f>& corners);
-};
-
 static void icvGetQuadrangleHypothesesCustom(const std::vector<std::vector< cv::Point > > & contours, const std::vector< cv::Vec4i > & hierarchy, std::vector<std::pair<float, int> >& quads, int class_id)
 {
     const float min_aspect_ratio = 0.3f;
@@ -481,7 +545,6 @@ static bool checkQuadsCustom(vector<pair<float, int> > & quads, const cv::Size &
     }
     return false;
 }
-
 
 // does a fast check if a chessboard is in the input image. This is a workaround to
 // a problem of cvFindChessboardCorners being slow on images with no chessboard
@@ -815,13 +878,13 @@ void ChessBoardDetector::generateQuadsCustom(const cv::Mat& image_, int flags)
             double p = cv::arcLength(approx_contour, true);
             double area = cv::contourArea(approx_contour, false);
 
-            double d1 = sqrt(normL2Sqr<double>(pt[0] - pt[2]));
-            double d2 = sqrt(normL2Sqr<double>(pt[1] - pt[3]));
+            double d1 = sqrt(normL2SqrCustom<double>(pt[0] - pt[2]));
+            double d2 = sqrt(normL2SqrCustom<double>(pt[1] - pt[3]));
 
             // philipg.  Only accept those quadrangles which are more square
             // than rectangular and which are big enough
-            double d3 = sqrt(normL2Sqr<double>(pt[0] - pt[1]));
-            double d4 = sqrt(normL2Sqr<double>(pt[1] - pt[2]));
+            double d3 = sqrt(normL2SqrCustom<double>(pt[0] - pt[1]));
+            double d4 = sqrt(normL2SqrCustom<double>(pt[1] - pt[2]));
             if (!(d3*4 > d4 && d4*4 > d3 && d3*d4 < area*1.5 && area > min_size &&
                 d1 >= 0.15 * p && d2 >= 0.15 * p))
                 continue;
@@ -862,7 +925,7 @@ void ChessBoardDetector::generateQuadsCustom(const cv::Mat& image_, int flags)
         q.edge_len = FLT_MAX;
         for (int i = 0; i < 4; ++i)
         {
-            float d = normL2Sqr<float>(q.corners[i]->pt - q.corners[(i+1)&3]->pt);
+            float d = normL2SqrCustom<float>(q.corners[i]->pt - q.corners[(i+1)&3]->pt);
             q.edge_len = std::min(q.edge_len, d);
         }
     }
@@ -1023,7 +1086,7 @@ void ChessBoardDetector::findQuadNeighborsCustom()
                     if (q_k.neighbors[j])
                         continue;
 
-                    float dist = normL2Sqr<float>(pt - q_k.corners[j]->pt);
+                    float dist = normL2SqrCustom<float>(pt - q_k.corners[j]->pt);
                     if (dist < min_dist &&
                         dist <= cur_quad.edge_len*thresh_scale &&
                         dist <= q_k.edge_len*thresh_scale )
@@ -1064,7 +1127,7 @@ void ChessBoardDetector::findQuadNeighborsCustom()
                     if (cur_quad.neighbors[j] == closest_quad)
                         break;
 
-                    if (normL2Sqr<float>(closest_corner.pt - cur_quad.corners[j]->pt) < min_dist)
+                    if (normL2SqrCustom<float>(closest_corner.pt - cur_quad.corners[j]->pt) < min_dist)
                         break;
                 }
                 if (j < 4)
@@ -1093,7 +1156,7 @@ void ChessBoardDetector::findQuadNeighborsCustom()
                         CV_DbgAssert(q);
                         if (!q->neighbors[k])
                         {
-                            if (normL2Sqr<float>(closest_corner.pt - q->corners[k]->pt) < min_dist)
+                            if (normL2SqrCustom<float>(closest_corner.pt - q->corners[k]->pt) < min_dist)
                                 break;
                         }
                     }

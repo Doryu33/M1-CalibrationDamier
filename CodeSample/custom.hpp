@@ -27,6 +27,4 @@ int checkChessboardBinaryCustom(const cv::Mat & img, const cv::Size & size);
 
 bool findChessboardCornersCustom(InputArray image_, Size pattern_size, OutputArray corners_, int flags);
 
-
-
 #endif //__CUSTOM_H__s
