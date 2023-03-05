@@ -13,70 +13,6 @@ using namespace std;
 
 #define MAX_CONTOUR_APPROX  7
 
-//Necessaire pour eviter les conflits de version
-template<typename _AccTp> static inline _AccTp normL2SqrCustom(const Point_<int>& pt);
-template<typename _AccTp> static inline _AccTp normL2SqrCustom(const Point_<int64>& pt);
-template<typename _AccTp> static inline _AccTp normL2SqrCustom(const Point_<float>& pt);
-template<typename _AccTp> static inline _AccTp normL2SqrCustom(const Point_<double>& pt);
-
-template<typename _Tp, typename _AccTp> static inline
-_AccTp normL2SqrCustom(const _Tp* a, int n)
-{
-    _AccTp s = 0;
-    int i=0;
-#if CV_ENABLE_UNROLLED
-    for( ; i <= n - 4; i += 4 )
-    {
-        _AccTp v0 = a[i], v1 = a[i+1], v2 = a[i+2], v3 = a[i+3];
-        s += v0*v0 + v1*v1 + v2*v2 + v3*v3;
-    }
-#endif
-    for( ; i < n; i++ )
-    {
-        _AccTp v = a[i];
-        s += v*v;
-    }
-    return s;
-}
-
-template<typename _Tp, typename _AccTp> static inline
-_AccTp normL2SqrCustom(const _Tp* a, const _Tp* b, int n)
-{
-    _AccTp s = 0;
-    int i= 0;
-#if CV_ENABLE_UNROLLED
-    for(; i <= n - 4; i += 4 )
-    {
-        _AccTp v0 = _AccTp(a[i] - b[i]), v1 = _AccTp(a[i+1] - b[i+1]), v2 = _AccTp(a[i+2] - b[i+2]), v3 = _AccTp(a[i+3] - b[i+3]);
-        s += v0*v0 + v1*v1 + v2*v2 + v3*v3;
-    }
-#endif
-    for( ; i < n; i++ )
-    {
-        _AccTp v = _AccTp(a[i] - b[i]);
-        s += v*v;
-    }
-    return s;
-}
-
-static inline float normL2SqrCustom(const float* a, const float* b, int n)
-{
-    float s = 0.f;
-    for( int i = 0; i < n; i++ )
-    {
-        float v = a[i] - b[i];
-        s += v*v;
-    }
-    return s;
-}
-
-template<> inline double normL2SqrCustom<double>(const Point_<int>& pt) { return pt.dot(pt); }
-template<> inline float normL2SqrCustom<float>(const Point_<float>& pt) { return pt.dot(pt); }
-template<> inline double normL2SqrCustom<double>(const Point_<float>& pt) { return pt.ddot(pt); }
-template<> inline double normL2SqrCustom<double>(const Point_<double>& pt) { return pt.ddot(pt); }
-
-
-
 struct QuadCountour {
     Point pt[4];
     int parent_contour;
@@ -110,7 +46,7 @@ struct ChessBoardCorner
         {
             if (neighbors[i])
             {
-                sum += sqrt(normL2SqrCustom<float>(neighbors[i]->pt - pt));
+                sum += sqrt(normL2Sqr<float>(neighbors[i]->pt - pt));
                 n++;
             }
         }
@@ -878,13 +814,13 @@ void ChessBoardDetector::generateQuadsCustom(const cv::Mat& image_, int flags)
             double p = cv::arcLength(approx_contour, true);
             double area = cv::contourArea(approx_contour, false);
 
-            double d1 = sqrt(normL2SqrCustom<double>(pt[0] - pt[2]));
-            double d2 = sqrt(normL2SqrCustom<double>(pt[1] - pt[3]));
+            double d1 = sqrt(normL2Sqr<double>(pt[0] - pt[2]));
+            double d2 = sqrt(normL2Sqr<double>(pt[1] - pt[3]));
 
             // philipg.  Only accept those quadrangles which are more square
             // than rectangular and which are big enough
-            double d3 = sqrt(normL2SqrCustom<double>(pt[0] - pt[1]));
-            double d4 = sqrt(normL2SqrCustom<double>(pt[1] - pt[2]));
+            double d3 = sqrt(normL2Sqr<double>(pt[0] - pt[1]));
+            double d4 = sqrt(normL2Sqr<double>(pt[1] - pt[2]));
             if (!(d3*4 > d4 && d4*4 > d3 && d3*d4 < area*1.5 && area > min_size &&
                 d1 >= 0.15 * p && d2 >= 0.15 * p))
                 continue;
@@ -925,7 +861,7 @@ void ChessBoardDetector::generateQuadsCustom(const cv::Mat& image_, int flags)
         q.edge_len = FLT_MAX;
         for (int i = 0; i < 4; ++i)
         {
-            float d = normL2SqrCustom<float>(q.corners[i]->pt - q.corners[(i+1)&3]->pt);
+            float d = normL2Sqr<float>(q.corners[i]->pt - q.corners[(i+1)&3]->pt);
             q.edge_len = std::min(q.edge_len, d);
         }
     }
@@ -1086,7 +1022,7 @@ void ChessBoardDetector::findQuadNeighborsCustom()
                     if (q_k.neighbors[j])
                         continue;
 
-                    float dist = normL2SqrCustom<float>(pt - q_k.corners[j]->pt);
+                    float dist = normL2Sqr<float>(pt - q_k.corners[j]->pt);
                     if (dist < min_dist &&
                         dist <= cur_quad.edge_len*thresh_scale &&
                         dist <= q_k.edge_len*thresh_scale )
@@ -1127,7 +1063,7 @@ void ChessBoardDetector::findQuadNeighborsCustom()
                     if (cur_quad.neighbors[j] == closest_quad)
                         break;
 
-                    if (normL2SqrCustom<float>(closest_corner.pt - cur_quad.corners[j]->pt) < min_dist)
+                    if (normL2Sqr<float>(closest_corner.pt - cur_quad.corners[j]->pt) < min_dist)
                         break;
                 }
                 if (j < 4)
@@ -1156,7 +1092,7 @@ void ChessBoardDetector::findQuadNeighborsCustom()
                         CV_DbgAssert(q);
                         if (!q->neighbors[k])
                         {
-                            if (normL2SqrCustom<float>(closest_corner.pt - q->corners[k]->pt) < min_dist)
+                            if (normL2Sqr<float>(closest_corner.pt - q->corners[k]->pt) < min_dist)
                                 break;
                         }
                     }
