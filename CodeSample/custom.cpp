@@ -860,12 +860,10 @@ void ChessBoardDetector::generateQuadsCustom(const cv::Mat& image_, int flags)
         }
     }
 
+    //------------------------
     Mat img2;
     cv::cvtColor(binarized_image, img2, 8);
-
-    //std::cout<< "Test: " << idx << "\n";
-    std::cout<< "Nombre de quad trouvés: " << all_quads.size() << "\n";
-
+    //On parcourt les quads détéctés et on les dessine
     for (size_t i = 0; i < quad_count; i++)
     {
         Point p1 = all_quads[i].corners[0]->pt;
@@ -877,6 +875,7 @@ void ChessBoardDetector::generateQuadsCustom(const cv::Mat& image_, int flags)
     namedWindow("Image: After GenerateQuad", WINDOW_NORMAL);
     cv::imshow("Image: After GenerateQuad",img2);
     cv::resizeWindow("Image: After GenerateQuad",600,600);
+    //------------------------
 
     all_quads_count = quad_count;
 
@@ -887,12 +886,11 @@ void ChessBoardDetector::generateQuadsCustom(const cv::Mat& image_, int flags)
 
 bool ChessBoardDetector::processQuadsCustom(std::vector<cv::Point2f>& out_corners, int &prev_sqr_size, InputArray image_)
 {
-
+    //------------------------
     Mat img = image_.getMat();
     Mat img2;
     cv::cvtColor(img, img2, 8);
-    //On dessine un rectangle pour delimiter la zone du patern trouve
-    //rectangle(img2, out_corners[0], out_corners[out_corners.size()-1], Scalar(0,0,255), 8, LINE_8);
+    //------------------------
     
 
     out_corners.resize(0);
@@ -916,8 +914,6 @@ bool ChessBoardDetector::processQuadsCustom(std::vector<cv::Point2f>& out_corner
             break;
 
         int count = (int)quad_group.size();
-        std::cout<< "Nb: " << count << "\n";
-        std::cout<< "Group IDX: " << group_idx << "\n";
         // order the quad corners globally
         // maybe delete or add some
         DPRINTF("Starting ordering of inner quads (%d)", count);
@@ -934,13 +930,13 @@ bool ChessBoardDetector::processQuadsCustom(std::vector<cv::Point2f>& out_corner
     
         count = checkQuadGroupCustom(quad_group, corner_group);
 
-
+        //------------------------
         //Point p1 = quad_group[0]->corners[0]->pt;
         //Point p2 = quad_group[quad_group.size()-1]->corners[2]->pt;
 
         Point p1 = {0,0};
         Point p2 = {0,0};
-
+        //On parcourt les quads du groupe pour trouvé les point min et max en X et Y.
         for (size_t j = 0; j < quad_group.size(); j++)
         {
             Point b = quad_group[j]->corners[0]->pt;
@@ -961,12 +957,13 @@ bool ChessBoardDetector::processQuadsCustom(std::vector<cv::Point2f>& out_corner
             }
         }
         
-
+        //On dessine le rectangle autour du groupe de quad
         rectangle(img2, p1, p2, Scalar(0,0,255), 8, LINE_8);
 
         namedWindow("Image: ProcessQuad", WINDOW_NORMAL);
         cv::imshow("Image: ProcessQuad",img2);
         cv::resizeWindow("Image: ProcessQuad",600,600);
+        //------------------------
 
         DPRINTF("Connected group: %d, count: %d", group_idx, count);
         int n = count > 0 ? pattern_size.width * pattern_size.height : -count;
