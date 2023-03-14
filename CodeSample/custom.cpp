@@ -936,27 +936,69 @@ bool ChessBoardDetector::processQuadsCustom(std::vector<cv::Point2f>& out_corner
 
         Point p1 = {0,0};
         Point p2 = {0,0};
+
+        std::vector<int> longX;
+        std::vector<int> longY;
+
         //On parcourt les quads du groupe pour trouvé les point min et max en X et Y.
         for (size_t j = 0; j < quad_group.size(); j++)
         {
-            Point b = quad_group[j]->corners[0]->pt;
-            Point g = quad_group[j]->corners[2]->pt;
+            //Les points sont dans le sens Horaire
+            Point hg = quad_group[j]->corners[0]->pt;
+            Point hd = quad_group[j]->corners[1]->pt;
+            Point bd = quad_group[j]->corners[2]->pt;
+            Point bg = quad_group[j]->corners[3]->pt;
 
-            if(b.x < p1.x || p1.x == 0){
-                p1.x = b.x;
+            //Calcul de la distance horizontale: moyenne du côté supérieur et inférieur
+            int xlenght = (abs(hg.x - hd.x) + abs(bd.x - bg.x))/2;
+            std::cout << "Longueur en X = " << xlenght << endl;
+            longX.push_back(xlenght);
+
+            //Calcul de la distance verticale: moyenne du côté gauche et droit
+            int ylenght = (abs(hg.y - bg.y) + abs(hd.y - bd.y))/2;
+            longY.push_back(ylenght);
+            std::cout << "Longueur en Y = " << ylenght << endl;
+            
+            //On cherche le min et le max pour dessiner le rectangle autour de la mire
+            if(hg.x < p1.x || p1.x == 0){
+                p1.x = hg.x;
             }
-            if(b.y < p1.y || p1.y == 0){
-                p1.y = b.y;
+            if(hg.y < p1.y || p1.y == 0){
+                p1.y = hg.y;
             }
 
-            if(g.x > p2.x || p2.x == 0){
-                p2.x = g.x;
+            if(bd.x > p2.x || p2.x == 0){
+                p2.x = bd.x;
             }
-            if(g.y > p2.y || p2.y == 0){
-                p2.y = g.y;
+            if(bd.y > p2.y || p2.y == 0){
+                p2.y = bd.y;
             }
         }
         
+        //TODO: Refaire cette partie proprement et correctement.
+        //Debut de piste.
+        //On calcul la moyenne en X
+        int n2 = longX.size();
+        int s = 0;
+        for (size_t i = 0; i < n2; i++)
+        {
+            s += longX[i];
+        }
+        int res = s / n2;
+        std::cout << "Moyenne en X: " << res << endl;
+
+        //On calcul la moyenne en Y
+        int n3 = longY.size();
+        int s2 = 0;
+        for (size_t i = 0; i < n2; i++)
+        {
+            s2 += longY[i];
+        }
+        int res2 = s2 / n3;
+        std::cout << "Moyenne en Y: " << res2 << endl;
+        
+
+
         //On dessine le rectangle autour du groupe de quad
         rectangle(img2, p1, p2, Scalar(0,0,255), 8, LINE_8);
 
