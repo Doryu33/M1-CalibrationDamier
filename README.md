@@ -7,3 +7,5 @@ cd CodeSample
 cmake .
 make
 ```
+# Library nécessaires
+OpenCV, version 4.2+
