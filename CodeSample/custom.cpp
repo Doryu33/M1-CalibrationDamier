@@ -930,15 +930,18 @@ bool ChessBoardDetector::processQuadsCustom(std::vector<cv::Point2f>& out_corner
     
         count = checkQuadGroupCustom(quad_group, corner_group);
 
-        //------------------------
-        //Point p1 = quad_group[0]->corners[0]->pt;
-        //Point p2 = quad_group[quad_group.size()-1]->corners[2]->pt;
-
+        
         Point p1 = {0,0};
         Point p2 = {0,0};
 
-        std::vector<int> longX;
-        std::vector<int> longY;
+        std::vector<int> lenght;
+        std::vector<std::vector<int>> lenghtsQuads;
+        int l = 0;
+        int sum = 0;
+        float avg = 0;
+
+
+        std::cout<< "NB QUAD: "<< quad_group.size() << endl;
 
         //On parcourt les quads du groupe pour trouvé les point min et max en X et Y.
         for (size_t j = 0; j < quad_group.size(); j++)
@@ -949,21 +952,34 @@ bool ChessBoardDetector::processQuadsCustom(std::vector<cv::Point2f>& out_corner
             Point bd = quad_group[j]->corners[2]->pt;
             Point bg = quad_group[j]->corners[3]->pt;
 
-            //Calcul de la distance horizontale: moyenne du côté supérieur et inférieur
-            int xlenght = (abs(hg.x - hd.x) + abs(bd.x - bg.x))/2;
-            if(xlenght > 15){
-                std::cout << "Longueur en X = " << xlenght << endl;
-                longX.push_back(xlenght);
-            }
-            
+            Point centre = {((hg.x + bd.x)/2), ((hg.y + bd.y)/2)};
 
-            //Calcul de la distance verticale: moyenne du côté gauche et droit
-            int ylenght = (abs(hg.y - bg.y) + abs(hd.y - bd.y))/2;
-            if(ylenght > 15){
-                longY.push_back(ylenght);
-                std::cout << "Longueur en Y = " << ylenght << endl;
-            }
-            
+            putText(img2, std::to_string(j), centre, cv::FONT_HERSHEY_SIMPLEX, 1.0, cv::Scalar(0, 0, 255), 2);
+
+            //On vide le vector
+            lenght.clear();
+
+            std::cout << "Quad: "<< j << endl;
+
+            //Longueur de 0 a 1
+            l = abs(hg.x - hd.x);
+            lenght.push_back(l);
+
+            //Longueur de 1 a 2
+            l = abs(hd.y - bd.y);
+            lenght.push_back(l);
+
+            //Longueur de 2 a 3
+            l = abs(bd.x - bg.x);
+            lenght.push_back(l);
+
+            //Longueur de 3 a 0
+            l = abs(bg.y - hg.y);
+            lenght.push_back(l);
+
+            lenghtsQuads.push_back(lenght);
+
+            avg = ((lenght[0] + lenght[1] + lenght[2] + lenght[3])/4.f);
             
             //On cherche le min et le max pour dessiner le rectangle autour de la mire
             if(hg.x < p1.x || p1.x == 0){
@@ -983,37 +999,12 @@ bool ChessBoardDetector::processQuadsCustom(std::vector<cv::Point2f>& out_corner
         
         //TODO: Refaire cette partie proprement et correctement.
         //Debut de piste.
-        //On calcul la moyenne en X
-        int n2 = longX.size();
-        int s = 0;
-        for (size_t i = 0; i < n2; i++)
-        {
-            s += longX[i];
-        }
-        int res = s / n2;
-        std::cout << "Moyenne en X: " << res << endl;
-
-        //On calcul la moyenne en Y
-        int n3 = longY.size();
-        int s2 = 0;
-        for (size_t i = 0; i < n2; i++)
-        {
-            s2 += longY[i];
-        }
-        int res2 = s2 / n3;
-        std::cout << "Moyenne en Y: " << res2 << endl;
+        //On calcul la moyenne pour chaque quad
         
 
 
         //On dessine le rectangle autour du groupe de quad
         rectangle(img2, p1, p2, Scalar(0,0,255), 8, LINE_8);
-
-        //affichage longueur moyenne des carrés
-        Point p3 = {p1.x + res, p1.y};
-        Point p4 = {p1.x, p1.y+res2};
-        rectangle(img2, p1, p3, Scalar(255,0,0), 8, LINE_8);
-        rectangle(img2, p1, p4, Scalar(0,255,0), 8, LINE_8);
-
 
 
         namedWindow("Image: ProcessQuad", WINDOW_NORMAL);
