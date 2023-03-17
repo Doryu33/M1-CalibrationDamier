@@ -951,13 +951,19 @@ bool ChessBoardDetector::processQuadsCustom(std::vector<cv::Point2f>& out_corner
 
             //Calcul de la distance horizontale: moyenne du côté supérieur et inférieur
             int xlenght = (abs(hg.x - hd.x) + abs(bd.x - bg.x))/2;
-            std::cout << "Longueur en X = " << xlenght << endl;
-            longX.push_back(xlenght);
+            if(xlenght > 15){
+                std::cout << "Longueur en X = " << xlenght << endl;
+                longX.push_back(xlenght);
+            }
+            
 
             //Calcul de la distance verticale: moyenne du côté gauche et droit
             int ylenght = (abs(hg.y - bg.y) + abs(hd.y - bd.y))/2;
-            longY.push_back(ylenght);
-            std::cout << "Longueur en Y = " << ylenght << endl;
+            if(ylenght > 15){
+                longY.push_back(ylenght);
+                std::cout << "Longueur en Y = " << ylenght << endl;
+            }
+            
             
             //On cherche le min et le max pour dessiner le rectangle autour de la mire
             if(hg.x < p1.x || p1.x == 0){
@@ -1001,6 +1007,14 @@ bool ChessBoardDetector::processQuadsCustom(std::vector<cv::Point2f>& out_corner
 
         //On dessine le rectangle autour du groupe de quad
         rectangle(img2, p1, p2, Scalar(0,0,255), 8, LINE_8);
+
+        //affichage longueur moyenne des carrés
+        Point p3 = {p1.x + res, p1.y};
+        Point p4 = {p1.x, p1.y+res2};
+        rectangle(img2, p1, p3, Scalar(255,0,0), 8, LINE_8);
+        rectangle(img2, p1, p4, Scalar(0,255,0), 8, LINE_8);
+
+
 
         namedWindow("Image: ProcessQuad", WINDOW_NORMAL);
         cv::imshow("Image: ProcessQuad",img2);
