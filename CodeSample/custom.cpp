@@ -997,9 +997,10 @@ bool ChessBoardDetector::processQuadsCustom(std::vector<cv::Point2f>& out_corner
                 hd = biggestXPoints.second;
                 bd = biggestXPoints.first;
             }
-
-            Point centre = {(hg.x + hd.x + bd.x + bg.x)/4, (hg.y + hd.y + bd.y + bg.y)/4};
-            putText(img2, std::to_string(j), centre, cv::FONT_HERSHEY_SIMPLEX, 1.0, cv::Scalar(0, 0, 255), 2);
+            
+            //Permet d'afficher l'ID du quad en son centre:
+            //Point centre = {(hg.x + hd.x + bd.x + bg.x)/4, (hg.y + hd.y + bd.y + bg.y)/4};
+            //putText(img2, std::to_string(j), centre, cv::FONT_HERSHEY_SIMPLEX, 1.0, cv::Scalar(0, 0, 255), 2);
 
             //On vide le vector
             lenght.clear();
