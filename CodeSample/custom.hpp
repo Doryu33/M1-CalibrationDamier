@@ -11,6 +11,14 @@
 
 using namespace cv;
 
+bool compareByX(const Point& p1, const Point& p2);
+
+bool compareByX2(const Point& p1, const Point& p2);
+
+std::pair<Point, Point> getSmallestXPoints(const std::vector<Point>& points);
+
+std::pair<Point, Point> getBiggestXPoints(const std::vector<Point>& points);
+
 static void icvBinarizationHistogramBased(Mat & img);
 
 static void icvGetQuadrangleHypothesesCustom(const std::vector<std::vector< cv::Point > > & contours, const std::vector< cv::Vec4i > & hierarchy, std::vector<std::pair<float, int> >& quads, int class_id);

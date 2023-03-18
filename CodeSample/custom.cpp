@@ -1,4 +1,5 @@
 #include "custom.hpp"
+#include <algorithm>
 
 #ifdef DEBUG_CHESSBOARD
 #include "opencv2/highgui.hpp"
@@ -12,6 +13,31 @@ using namespace cv;
 using namespace std;
 
 #define MAX_CONTOUR_APPROX  7
+
+//------------------------------------------------------
+//Permet de comparer et ordonner les points d'un quad.
+bool compareByX(const Point& p1, const Point& p2) {
+    return p1.x < p2.x;
+}
+
+bool compareByX2(const Point& p1, const Point& p2) {
+    return p1.x > p2.x;
+}
+
+std::pair<Point, Point> getSmallestXPoints(const std::vector<Point>& points) {
+    std::vector<Point> sortedPoints(points);
+    std::sort(sortedPoints.begin(), sortedPoints.end(), compareByX);
+
+    return std::make_pair(sortedPoints[0], sortedPoints[1]);
+}
+
+std::pair<Point, Point> getBiggestXPoints(const std::vector<Point>& points) {
+    std::vector<Point> sortedPoints(points);
+    std::sort(sortedPoints.begin(), sortedPoints.end(), compareByX2);
+
+    return std::make_pair(sortedPoints[0], sortedPoints[1]);
+}
+//------------------------------------------------------
 
 struct QuadCountour {
     Point pt[4];
@@ -941,7 +967,7 @@ bool ChessBoardDetector::processQuadsCustom(std::vector<cv::Point2f>& out_corner
         float avg = 0;
 
 
-        std::cout<< "NB QUAD: "<< quad_group.size() << endl;
+        std::cout<< "NB QUAD: "<< quad_group.size() << endl << "Longueur des quads: " << endl;
 
         //On parcourt les quads du groupe pour trouvé les point min et max en X et Y.
         for (size_t j = 0; j < quad_group.size(); j++)
@@ -950,16 +976,35 @@ bool ChessBoardDetector::processQuadsCustom(std::vector<cv::Point2f>& out_corner
             Point hg = quad_group[j]->corners[0]->pt;
             Point hd = quad_group[j]->corners[1]->pt;
             Point bd = quad_group[j]->corners[2]->pt;
-            Point bg = quad_group[j]->corners[3]->pt;
+            Point bg = quad_group[j]->corners[3]->pt;       
 
-            Point centre = {((hg.x + bd.x)/2), ((hg.y + bd.y)/2)};
+            std::vector<Point> points = {hg, hd, bg, bd};
 
+            auto smallestXPoints = getSmallestXPoints(points);
+            if(smallestXPoints.first.y < smallestXPoints.second.y){
+                hg = smallestXPoints.first;
+                bg = smallestXPoints.second;
+            } else {
+                hg = smallestXPoints.second;
+                bg = smallestXPoints.first;
+            }
+
+            auto biggestXPoints = getBiggestXPoints(points);
+            if(biggestXPoints.first.y < biggestXPoints.second.y){
+                hd = biggestXPoints.first;
+                bd = biggestXPoints.second;
+            } else {
+                hd = biggestXPoints.second;
+                bd = biggestXPoints.first;
+            }
+
+            Point centre = {(hg.x + hd.x + bd.x + bg.x)/4, (hg.y + hd.y + bd.y + bg.y)/4};
             putText(img2, std::to_string(j), centre, cv::FONT_HERSHEY_SIMPLEX, 1.0, cv::Scalar(0, 0, 255), 2);
 
             //On vide le vector
             lenght.clear();
 
-            std::cout << "Quad: "<< j << endl;
+            //std::cout << "Quad: "<< j << endl;
 
             //Longueur de 0 a 1
             l = abs(hg.x - hd.x);
@@ -980,6 +1025,7 @@ bool ChessBoardDetector::processQuadsCustom(std::vector<cv::Point2f>& out_corner
             lenghtsQuads.push_back(lenght);
 
             avg = ((lenght[0] + lenght[1] + lenght[2] + lenght[3])/4.f);
+            std::cout << avg << endl;
             
             //On cherche le min et le max pour dessiner le rectangle autour de la mire
             if(hg.x < p1.x || p1.x == 0){
@@ -996,12 +1042,6 @@ bool ChessBoardDetector::processQuadsCustom(std::vector<cv::Point2f>& out_corner
                 p2.y = bd.y;
             }
         }
-        
-        //TODO: Refaire cette partie proprement et correctement.
-        //Debut de piste.
-        //On calcul la moyenne pour chaque quad
-        
-
 
         //On dessine le rectangle autour du groupe de quad
         rectangle(img2, p1, p2, Scalar(0,0,255), 8, LINE_8);
