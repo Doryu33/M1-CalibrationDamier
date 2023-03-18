@@ -637,6 +637,8 @@ bool findChessboardCornersCustom(InputArray image_, Size pattern_size, OutputArr
             cv::resizeWindow("Image: After rectangle",600,600);
             //------------------------
             found = true;
+            //On ajoute 1 car si dilations = 0, on a dilaté une fois.
+            std::cout << "Dilation utilisée: " << dilations + 1<< endl << endl;
             break;
         }
     }
@@ -702,6 +704,8 @@ bool findChessboardCornersCustom(InputArray image_, Size pattern_size, OutputArr
                 if (detector.processQuadsCustom(out_corners, prev_sqr_size,thresh_img_new))
                 {
                     found = 1;
+                    //On ajoute 1 car si dilations = 0, on a dilaté une fois.
+                    std::cout << "Dilation utilisée: " << dilations + 1 << endl << endl;
                     break;
                 }
             }

@@ -41,7 +41,7 @@ int main(int argc, const char **argv)
   VideoCapture capture;
   capture.open(0);
   if (!capture.isOpened()){
-    std::cout << "Pas de camera. Ouverture de l'image: " << argv[1] << "\n";
+    std::cout << "Pas de camera. Ouverture de l'image: " << argv[1] << endl << endl;
     frame = imread( argv[1], 1 );
     if ( !frame.data )
     {
