@@ -7,11 +7,67 @@
 #include <iostream>
 
 using namespace cv;
-//Both width and height of the pattern should have bigger than 2 in function 'findChessboardCorners'
-// Defining the dimensions of checkerboard
-int CHECKERBOARD[2]{3,24};
+using namespace std;
+// Both width and height of the pattern should have bigger than 2 in function 'findChessboardCorners'
+//  Defining the dimensions of checkerboard
+// int CHECKERBOARD[2]{3,24};
+int CHECKERBOARD[2]{1, 24};
 
+#include <opencv2/opencv.hpp>
 
+int main(int argc, const char **argv)
+{
+  // Charger l'image
+  Mat image = imread(argv[1], 1);
+  // Convertir l'image en niveaux de gris
+  Mat gray;
+  cvtColor(image, gray, COLOR_BGR2GRAY);
+
+  // Seuiller l'image pour isoler le damier
+  Mat binary = gray.clone();
+  // threshold(gray, binary, 150, 255, THRESH_BINARY_INV);
+  icvBinarizationHistogramBased(binary);
+
+  ChessBoardDetector detector(cv::Size(CHECKERBOARD[0], CHECKERBOARD[1]));
+  dilate(binary, binary, Mat(), Point(-1, -1), 1);
+  namedWindow("Image: After dilation", WINDOW_NORMAL);
+  cv::imshow("Image: After dilation", binary);
+  cv::resizeWindow("Image: After dilation", 600, 600);
+
+  // Trouver les contours dans l'image seuillée
+  vector<vector<Point>> contours;
+  findContours(binary, contours, RETR_LIST, CHAIN_APPROX_SIMPLE);
+
+  // Rechercher le contour qui a 4 coins (les contours du damier)
+  vector<Point> approx;
+
+  for (size_t i = 0; i < contours.size(); i++)
+  {
+    approxPolyDP(contours[i], approx, arcLength(contours[i], true) * 0.02, true);
+    if (approx.size() == 4)
+    {
+      std::cout << "Contours numero: " << i << endl;
+      // Dessiner les coins détectés sur l'image d'origine
+      for (size_t i = 0; i < approx.size(); i++)
+      {
+        std::cout << "Pos: (" << approx[i].x << ";" << approx[i].y << ")" << endl;
+        circle(image, approx[i], 5, Scalar(0, 0, 255), 2);
+      }
+    }
+    // break;
+  }
+
+  // Afficher l'image résultante
+  namedWindow("Result", WINDOW_NORMAL);
+  imshow("Result", image);
+  cv::resizeWindow("Result", 600, 600);
+
+  waitKey(0);
+
+  return 0;
+}
+
+/*
 int main(int argc, const char **argv)
 {
 
@@ -22,10 +78,10 @@ int main(int argc, const char **argv)
   }
   // Creating vector to store vectors of 3D points for each checkerboard image
   std::vector<std::vector<cv::Point3f> > objpoints;
-  
+
   // Creating vector to store vectors of 2D points for each checkerboard image
   std::vector<std::vector<cv::Point2f> > imgpoints;
-  
+
   // Defining the world coordinates for 3D points
   std::vector<cv::Point3f> objp;
   for(int i{0}; i<CHECKERBOARD[1]; i++) {
@@ -37,7 +93,7 @@ int main(int argc, const char **argv)
   // vector to store the pixel coordinates of detected checker board corners
   std::vector<cv::Point2f> corner_pts;
   bool success;
-  
+
   VideoCapture capture;
   capture.open(0);
   if (!capture.isOpened()){
@@ -53,17 +109,17 @@ int main(int argc, const char **argv)
       // Finding checker board corners
       // If desired number of corners are found in the image then success = true
       success = findChessboardCornersCustom(gray, cv::Size(CHECKERBOARD[0], CHECKERBOARD[1]), corner_pts, CALIB_CB_ADAPTIVE_THRESH | CALIB_CB_FAST_CHECK | CALIB_CB_NORMALIZE_IMAGE);
-      
+
       // If desired number of corner are detected, we refine the pixel coordinates and display them on the images of checker board
       if(success) {
         cv::TermCriteria criteria(cv::TermCriteria::MAX_ITER + cv::TermCriteria::EPS, 30, 0.001);
-        
+
         // refining pixel coordinates for given 2d points.
         cv::cornerSubPix(gray,corner_pts,cv::Size(11,11), cv::Size(-1,-1),criteria);
-        
+
         // Displaying the detected corner points on the checker board
         cv::drawChessboardCorners(frame, cv::Size(CHECKERBOARD[0], CHECKERBOARD[1]), corner_pts, success);
-        
+
         objpoints.push_back(objp);
         imgpoints.push_back(corner_pts);
         //Display the result
@@ -84,17 +140,17 @@ int main(int argc, const char **argv)
       // Finding checker board corners
       // If desired number of corners are found in the image then success = true
       success = findChessboardCornersCustom(gray, cv::Size(CHECKERBOARD[0], CHECKERBOARD[1]), corner_pts, CALIB_CB_ADAPTIVE_THRESH | CALIB_CB_FAST_CHECK | CALIB_CB_NORMALIZE_IMAGE);
-      
+
       // If desired number of corner are detected, we refine the pixel coordinates and display them on the images of checker board
       if(success) {
         cv::TermCriteria criteria(cv::TermCriteria::MAX_ITER + cv::TermCriteria::EPS, 30, 0.001);
-        
+
         // refining pixel coordinates for given 2d points.
         cv::cornerSubPix(gray,corner_pts,cv::Size(11,11), cv::Size(-1,-1),criteria);
-        
+
         // Displaying the detected corner points on the checker board
         cv::drawChessboardCorners(frame, cv::Size(CHECKERBOARD[0], CHECKERBOARD[1]), corner_pts, success);
-        
+
         //objpoints.push_back(objp);
         //imgpoints.push_back(corner_pts);
         //Display the result
@@ -105,8 +161,9 @@ int main(int argc, const char **argv)
     }
   }
 
-  
+
   cv::destroyAllWindows();
-  
+
   return 0;
 }
+*/
