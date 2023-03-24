@@ -28,33 +28,34 @@ int main(int argc, const char **argv)
   // threshold(gray, binary, 150, 255, THRESH_BINARY_INV);
   icvBinarizationHistogramBased(binary);
 
+  std::vector<cv::Point2f> out_corners;
+  int prev_sqr_size = 0;
+
   ChessBoardDetector detector(cv::Size(CHECKERBOARD[0], CHECKERBOARD[1]));
+
+  
+  std::cout << "Pattern size: width:" << detector.pattern_size.width << " heigh: " << detector.pattern_size.height << endl; 
+
   dilate(binary, binary, Mat(), Point(-1, -1), 1);
   namedWindow("Image: After dilation", WINDOW_NORMAL);
   cv::imshow("Image: After dilation", binary);
   cv::resizeWindow("Image: After dilation", 600, 600);
 
-  // Trouver les contours dans l'image seuillée
-  vector<vector<Point>> contours;
-  findContours(binary, contours, RETR_LIST, CHAIN_APPROX_SIMPLE);
-
-  // Rechercher le contour qui a 4 coins (les contours du damier)
-  vector<Point> approx;
-
-  for (size_t i = 0; i < contours.size(); i++)
+  detector.generateQuadsCustom(binary, 0);
+  bool test = detector.processQuadsCustom(out_corners, prev_sqr_size, binary);
+  std::cout << test << endl;
+  if(test)
   {
-    approxPolyDP(contours[i], approx, arcLength(contours[i], true) * 0.02, true);
-    if (approx.size() == 4)
-    {
-      std::cout << "Contours numero: " << i << endl;
-      // Dessiner les coins détectés sur l'image d'origine
-      for (size_t i = 0; i < approx.size(); i++)
-      {
-        std::cout << "Pos: (" << approx[i].x << ";" << approx[i].y << ")" << endl;
-        circle(image, approx[i], 5, Scalar(0, 0, 255), 2);
-      }
-    }
-    // break;
+    //------------------------
+    // Creation d'une nouvelle image pour pouvoir dessiner le rectangle en couleur
+    Mat img2;
+    cv::cvtColor(binary, img2, 8);
+    // On dessine un rectangle pour delimiter la zone du patern trouve
+    rectangle(img2, out_corners[0], out_corners[out_corners.size() - 1], Scalar(0, 0, 255), 8, LINE_8);
+    namedWindow("Image: After rectangle", WINDOW_NORMAL);
+    cv::imshow("Image: After rectangle", img2);
+    cv::resizeWindow("Image: After rectangle", 600, 600);
+    //------------------------
   }
 
   // Afficher l'image résultante
