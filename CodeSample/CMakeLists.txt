@@ -1,4 +1,6 @@
 cmake_minimum_required(VERSION 2.8)
+set(CMAKE_CXX_STANDARD_REQUIRED)
+set(CMAKE_CXX_STANDARD 17)
 project( main )
 find_package( OpenCV 4.2.0 REQUIRED )
 include_directories( ${OpenCV_INCLUDE_DIRS} )

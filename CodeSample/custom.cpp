@@ -1,5 +1,6 @@
 #include "custom.hpp"
 #include <algorithm>
+#include <numeric>
 
 #ifdef DEBUG_CHESSBOARD
 #include "opencv2/highgui.hpp"
@@ -136,6 +137,8 @@ public:
     void generateQuadsCustom(const cv::Mat &image_, int flags);
 
     bool processQuadsCustom(std::vector<cv::Point2f> &out_corners, int &prev_sqr_size, InputArray image_);
+
+    bool processQuadsCustom2(std::vector<cv::Point2f> &out_corners, int &prev_sqr_size, InputArray image_, const std::string fileName, double* pixelWidth);
 
     void findQuadNeighborsCustom();
 
@@ -911,9 +914,9 @@ void ChessBoardDetector::generateQuadsCustom(const cv::Mat &image_, int flags)
         rectangle(img2, p1, p2, Scalar(0, 0, 255), 8, LINE_8);
     }
 
-    namedWindow("Image: After GenerateQuad", WINDOW_NORMAL);
-    cv::imshow("Image: After GenerateQuad", img2);
-    cv::resizeWindow("Image: After GenerateQuad", 600, 600);
+    namedWindow("Image: GenerateQuad", WINDOW_NORMAL);
+    cv::imshow("Image: GenerateQuad", img2);
+    cv::resizeWindow("Image: GenerateQuad", 600, 600);
     //------------------------
 
     all_quads_count = quad_count;
@@ -1139,6 +1142,139 @@ bool ChessBoardDetector::processQuadsCustom(std::vector<cv::Point2f> &out_corner
     cv::resizeWindow("Image: Test", 600, 600);
 
     return false;
+}
+
+bool ChessBoardDetector::processQuadsCustom2(std::vector<cv::Point2f> &out_corners, int &prev_sqr_size, InputArray image_, const std::string fileName, double* pixelWidth)
+{
+    //------------------------
+    Mat img = image_.getMat();
+    Mat imgDebug;
+    cv::cvtColor(img, imgDebug, 8);
+    //------------------------
+
+    bool found = false;
+
+    out_corners.resize(0);
+
+    if (all_quads_count <= 0)
+        return false;
+
+    size_t max_quad_buf_size = all_quads.size();
+
+    // Find quad's neighbors
+    findQuadNeighborsCustom();
+
+    // allocate extra for adding in orderFoundQuads
+    std::vector<ChessBoardQuad *> quad_group;
+    std::vector<ChessBoardCorner *> corner_group;
+    corner_group.reserve(max_quad_buf_size * 4);
+
+    for (int group_idx = 0;; group_idx++)
+    {
+
+        findConnectedQuadsCustom(quad_group, group_idx);
+        if (quad_group.empty())
+        {
+            //std::cout << "Quad group is empty. Break." << endl;
+            break;
+        }
+        int count = (int)quad_group.size();
+
+        //-------------
+        std::vector<int> lenght;
+        std::vector<int> lenghtsQuads;
+        int l = 0;
+        int sum = 0;
+        float avg = 0;
+
+        if (count > 20)
+        {
+
+            // std::cout << "group_idx: " << group_idx << endl;
+            // std::cout << "count = " << count << endl;
+            for (size_t i = 0; i < quad_group.size(); i++)
+            {
+                // Les points sont dans le sens Horaire
+                Point hg = quad_group[i]->corners[0]->pt;
+                Point hd = quad_group[i]->corners[1]->pt;
+                Point bd = quad_group[i]->corners[2]->pt;
+                Point bg = quad_group[i]->corners[3]->pt;
+
+                //----
+                std::vector<Point> points = {hg, hd, bg, bd};
+
+                auto smallestXPoints = getSmallestXPoints(points);
+                if (smallestXPoints.first.y < smallestXPoints.second.y)
+                {
+                    hg = smallestXPoints.first;
+                    bg = smallestXPoints.second;
+                }
+                else
+                {
+                    hg = smallestXPoints.second;
+                    bg = smallestXPoints.first;
+                }
+
+                auto biggestXPoints = getBiggestXPoints(points);
+                if (biggestXPoints.first.y < biggestXPoints.second.y)
+                {
+                    hd = biggestXPoints.first;
+                    bd = biggestXPoints.second;
+                }
+                else
+                {
+                    hd = biggestXPoints.second;
+                    bd = biggestXPoints.first;
+                }
+
+                // Permet d'afficher l'ID du quad en son centre:
+                // Point centre = {(hg.x + hd.x + bd.x + bg.x)/4, (hg.y + hd.y + bd.y + bg.y)/4};
+                // putText(img2, std::to_string(j), centre, cv::FONT_HERSHEY_SIMPLEX, 1.0, cv::Scalar(0, 0, 255), 2);
+
+                // On vide le vector
+                lenght.clear();
+
+                // std::cout << "Quad: "<< j << endl;
+
+                // Longueur de 0 a 1
+                l = abs(hg.x - hd.x);
+                lenght.push_back(l);
+
+                // Longueur de 1 a 2
+                l = abs(hd.y - bd.y);
+                lenght.push_back(l);
+
+                // Longueur de 2 a 3
+                l = abs(bd.x - bg.x);
+                lenght.push_back(l);
+
+                // Longueur de 3 a 0
+                l = abs(bg.y - hg.y);
+                lenght.push_back(l);
+
+                lenghtsQuads.push_back(avg);
+
+                avg = ((lenght[0] + lenght[1] + lenght[2] + lenght[3]) / 4.f);
+                lenghtsQuads.push_back(avg);
+
+                //----
+
+                rectangle(imgDebug, hg, bd, Scalar(0, (group_idx * 50) % 255, 255), 8, LINE_8);
+            }
+
+            double moyenne = std::accumulate(lenghtsQuads.begin(), lenghtsQuads.end(), 0.0) / lenghtsQuads.size();
+            //std::cout << fileName << ": " << moyenne << endl;
+            *pixelWidth = moyenne;
+            found = true;
+            break;
+        }
+    }
+
+    namedWindow(fileName, WINDOW_NORMAL);
+    cv::imshow(fileName, imgDebug);
+    cv::resizeWindow(fileName, 600, 600);
+
+    return found;
 }
 
 //
