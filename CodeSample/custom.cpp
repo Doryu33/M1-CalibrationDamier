@@ -1,6 +1,8 @@
 #include "custom.hpp"
 #include <algorithm>
 #include <numeric>
+#include <cmath>
+#include <vector>
 
 #ifdef DEBUG_CHESSBOARD
 #include "opencv2/highgui.hpp"
@@ -41,6 +43,25 @@ std::pair<Point, Point> getBiggestXPoints(const std::vector<Point> &points)
     std::sort(sortedPoints.begin(), sortedPoints.end(), compareByX2);
 
     return std::make_pair(sortedPoints[0], sortedPoints[1]);
+}
+
+/**
+ * @brief Permet de retirer les X% extremes d'un vecteur et d'en retourner la moyenne.
+ * 
+ * @param valeurs 
+ * @return double La moyenne 
+ */
+double moyenneSansExtremes(std::vector<int> valeurs)
+{
+    std::sort(valeurs.begin(), valeurs.end()); // Tri en ordre croissant
+    int nbValeurs = valeurs.size();
+    int nbElimines = std::ceil(0.10 * nbValeurs) + std::floor(0.10 * nbValeurs); // Nombre de valeurs à éliminer
+    double somme = 0;
+    for (int i = nbElimines; i < nbValeurs - nbElimines; ++i)
+    {
+        somme += valeurs[i];
+    }
+    return somme / (nbValeurs - 2 * nbElimines); // Moyenne des valeurs restantes
 }
 //------------------------------------------------------
 
@@ -138,7 +159,7 @@ public:
 
     bool processQuadsCustom(std::vector<cv::Point2f> &out_corners, int &prev_sqr_size, InputArray image_);
 
-    bool processQuadsCustom2(std::vector<cv::Point2f> &out_corners, int &prev_sqr_size, InputArray image_, const std::string fileName, double* pixelWidth);
+    bool processQuadsCustom2(std::vector<cv::Point2f> &out_corners, int &prev_sqr_size, InputArray image_, const std::string fileName, double *pixelWidth);
 
     void findQuadNeighborsCustom();
 
@@ -914,9 +935,9 @@ void ChessBoardDetector::generateQuadsCustom(const cv::Mat &image_, int flags)
         rectangle(img2, p1, p2, Scalar(0, 0, 255), 8, LINE_8);
     }
 
-    namedWindow("Image: GenerateQuad", WINDOW_NORMAL);
-    cv::imshow("Image: GenerateQuad", img2);
-    cv::resizeWindow("Image: GenerateQuad", 600, 600);
+    // namedWindow("Image: GenerateQuad", WINDOW_NORMAL);
+    // cv::imshow("Image: GenerateQuad", img2);
+    // cv::resizeWindow("Image: GenerateQuad", 600, 600);
     //------------------------
 
     all_quads_count = quad_count;
@@ -1144,7 +1165,7 @@ bool ChessBoardDetector::processQuadsCustom(std::vector<cv::Point2f> &out_corner
     return false;
 }
 
-bool ChessBoardDetector::processQuadsCustom2(std::vector<cv::Point2f> &out_corners, int &prev_sqr_size, InputArray image_, const std::string fileName, double* pixelWidth)
+bool ChessBoardDetector::processQuadsCustom2(std::vector<cv::Point2f> &out_corners, int &prev_sqr_size, InputArray image_, const std::string fileName, double *pixelWidth)
 {
     //------------------------
     Mat img = image_.getMat();
@@ -1175,7 +1196,7 @@ bool ChessBoardDetector::processQuadsCustom2(std::vector<cv::Point2f> &out_corne
         findConnectedQuadsCustom(quad_group, group_idx);
         if (quad_group.empty())
         {
-            //std::cout << "Quad group is empty. Break." << endl;
+            // std::cout << "Quad group is empty. Break." << endl;
             break;
         }
         int count = (int)quad_group.size();
@@ -1187,7 +1208,7 @@ bool ChessBoardDetector::processQuadsCustom2(std::vector<cv::Point2f> &out_corne
         int sum = 0;
         float avg = 0;
 
-        if (count > 20)
+        if (count > 16)
         {
 
             // std::cout << "group_idx: " << group_idx << endl;
@@ -1262,7 +1283,8 @@ bool ChessBoardDetector::processQuadsCustom2(std::vector<cv::Point2f> &out_corne
                 rectangle(imgDebug, hg, bd, Scalar(0, (group_idx * 50) % 255, 255), 8, LINE_8);
             }
 
-            double moyenne = std::accumulate(lenghtsQuads.begin(), lenghtsQuads.end(), 0.0) / lenghtsQuads.size();
+            //double moyenne = std::accumulate(lenghtsQuads.begin(), lenghtsQuads.end(), 0.0) / lenghtsQuads.size();
+            double moyenne = moyenneSansExtremes(lenghtsQuads);
             //std::cout << fileName << ": " << moyenne << endl;
             *pixelWidth = moyenne;
             found = true;
