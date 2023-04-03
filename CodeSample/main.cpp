@@ -17,28 +17,49 @@ using namespace std;
 // int CHECKERBOARD[2]{3,24};
 int CHECKERBOARD[2]{1, 24};
 
-struct ImageData
+void afficherImageData(const ImageData& imageData)
 {
-  std::string FileName;
-  bool found;
-  double longueurTotal;
-  double longueurGarde;
-  int nbCarreTotal;
-  int nbCarreGarde;
-};
+  std::cout << "FileName: " << imageData.FileName << std::endl;
+  std::cout << "mireTrouvee: " << imageData.mireTrouvee << std::endl;
+  std::cout << "nbCarresMire: " << imageData.nbCarresMire << std::endl;
+  std::cout << "nbCarresDetectes: " << imageData.nbCarresDetectes << std::endl;
+  std::cout << "moyenneLongueurCote_Pixels: " << imageData.moyenneLongueurCote_Pixels << std::endl;
+  std::cout << "medianeLongueurCote_Pixels: " << imageData.medianeLongueurCote_Pixels << std::endl;
+  std::cout << "minLongueurCote_Pixels: " << imageData.minLongueurCote_Pixels << std::endl;
+  std::cout << "maxLongueurCote_Pixels: " << imageData.maxLongueurCote_Pixels << std::endl;
+  std::cout << "ecartTypeLongueurCote_Pixels: " << imageData.ecartTypeLongueurCote_Pixels << std::endl;
+  std::cout << "nombreCarresDetectesSansExtremes: " << imageData.nombreCarresDetectesSansExtremes << std::endl;
+  std::cout << "moyenneLongueurCoteSansExtremes_Pixels: " << imageData.moyenneLongueurCoteSansExtremes_Pixels << std::endl;
+  std::cout << "medianeLongueurCoteSansExtremes_Pixels: " << imageData.medianeLongueurCoteSansExtremes_Pixels << std::endl;
+  std::cout << "minLongueurCoteSansExtremes_Pixels: " << imageData.minLongueurCoteSansExtremes_Pixels << std::endl;
+  std::cout << "maxLongueurCoteSansExtremes_Pixels: " << imageData.maxLongueurCoteSansExtremes_Pixels << std::endl;
+  std::cout << "ecartTypeLongueurCoteSansExtremes_Pixels: " << imageData.ecartTypeLongueurCoteSansExtremes_Pixels << std::endl;
+}
 
-void
-ecrireCSV(const std::vector<ImageData> &donnees, const std::string &nomFichier)
+void ecrireCSV(const std::vector<ImageData> &donnees, const std::string &nomFichier)
 {
   std::string dossierResultats = "../Data/Results";
   std::filesystem::create_directories(dossierResultats);      // création du dossier s'il n'existe pas déjà
   std::ofstream fichier(dossierResultats + "/" + nomFichier); // chemin complet du fichier
   if (fichier.is_open())
   {
-    fichier << "NomFichier;Trouvé;Longueur;NbCarre\n"; // Écriture de l'en-tête CSV
+    //Écriture de l'en-tête CSV
+    fichier << "nomImage;mireTrouvee;nombreCarresMire;nombreCarresDetectes;moyenneLongueurCote_Pixels;medianeLongueurCote_Pixels;minLongueurCote_Pixels;maxLongueurCote_Pixels;ecartTypeLongueurCote_Pixels;nombreCarresDetectesSansExtremes;moyenneLongueurCoteSansExtremes_Pixels;medianeLongueurCoteSansExtremes_Pixels;minLongueurCoteSansExtremes_Pixels;maxLongueurCoteSansExtremes_Pixels;ecartTypeLongueurCoteSansExtremes_Pixels \n";
     for (const auto &donnee : donnees)
     {
-      fichier << donnee.FileName << ";" << (donnee.found ? "oui" : "non") << ";" << donnee.longueurGarde << ";" << donnee.nbCarreTotal << "\n";
+      fichier << donnee.FileName << ";" << (donnee.mireTrouvee ? "Oui" : "Non") 
+      << ";" << donnee.nbCarresMire << ";" << donnee.nbCarresDetectes
+      << ";" << donnee.moyenneLongueurCote_Pixels
+      << ";" << donnee.medianeLongueurCote_Pixels
+      << ";" << donnee.minLongueurCote_Pixels
+      << ";" << donnee.maxLongueurCote_Pixels
+      << ";" << donnee.ecartTypeLongueurCote_Pixels
+      << ";" << donnee.nombreCarresDetectesSansExtremes
+      << ";" << donnee.moyenneLongueurCoteSansExtremes_Pixels
+      << ";" << donnee.medianeLongueurCoteSansExtremes_Pixels
+      << ";" << donnee.minLongueurCoteSansExtremes_Pixels
+      << ";" << donnee.maxLongueurCoteSansExtremes_Pixels
+      << ";" << donnee.ecartTypeLongueurCoteSansExtremes_Pixels << "\n";
     }
     fichier.close(); // Fermeture du fichier
     std::cout << "Les données ont été écrites dans le fichier " << nomFichier << std::endl;
@@ -64,7 +85,7 @@ void afficherImage(Mat image, const std::string &name)
  * @param pattern Taille de la mire/damier.
  * @return La longueur en pixel des carrés si trouvée, -1 sinon.
  */
-double calculeEchelleDamier(const std::string &fileName, const int pattern[2], bool debug = false)
+ImageData calculeEchelleDamier(const std::string &fileName, const int pattern[2], bool debug)
 {
   //---------------------
   // Constantes
@@ -72,6 +93,7 @@ double calculeEchelleDamier(const std::string &fileName, const int pattern[2], b
   const int max_dilations = 3;
   // Variables
   bool found = false;
+  ImageData data = {fileName,false,0,0,0,0,0,0,0,0,0,0,0,0,0};
   double pixelWidth = -1;
   std::vector<cv::Point2f> out_corners;
   int prev_sqr_size = 0;
@@ -97,7 +119,7 @@ double calculeEchelleDamier(const std::string &fileName, const int pattern[2], b
 
   // On binarise l'image.
   Mat binary = gray.clone();
-  int t = 140;
+  int t = 127;
 
   threshold(gray, binary, t, 255, 0);
 
@@ -117,18 +139,16 @@ double calculeEchelleDamier(const std::string &fileName, const int pattern[2], b
 
     detector.generateQuadsCustom(binary, 0);
 
-    bool found = detector.processQuadsCustom2(out_corners, prev_sqr_size, binary, fileName, &pixelWidth);
+    bool found = detector.processQuadsCustom2(out_corners, prev_sqr_size, binary, fileName, &data, i);
 
     // Si on a trouvé un pattern qui corresponds, on arrête les itérationsé
     if (found)
     {
-      int k = 3 + 2 * (i);
-      pixelWidth = pixelWidth + k - 1;
       break;
     }
   }
 
-  return pixelWidth;
+  return data;
 }
 
 int main(int argc, const char **argv)
@@ -146,21 +166,22 @@ int main(int argc, const char **argv)
   auto start0 = std::chrono::high_resolution_clock::now();
   for (const auto &fichier : std::filesystem::directory_iterator(dossier))
   {
+    ImageData data = {};
     if (fichier.path().extension() == ".jpg" || fichier.path().extension() == ".JPG")
     {
       found = 0;
       std::cout << "------------" << endl
                 << "FICHIER: " << fichier.path().string() << endl;
       auto start = std::chrono::high_resolution_clock::now();
-      pixelWidth = calculeEchelleDamier(fichier.path().string(), CHECKERBOARD, false);
+      data = calculeEchelleDamier(fichier.path().string(), CHECKERBOARD, false);
       auto end = std::chrono::high_resolution_clock::now();
-      if (pixelWidth == -1)
+      if (!data.mireTrouvee)
       {
         std::cout << "Pattern non trouvé." << endl;
       }
       else
       {
-        std::cout << "Pattern trouvé. Longueur: " << pixelWidth << endl;
+        std::cout << "Pattern trouvé. Longueur: " << data.moyenneLongueurCoteSansExtremes_Pixels << endl;
         found = true;
         nbPatternTrouve++;
       }
@@ -170,13 +191,12 @@ int main(int argc, const char **argv)
       std::cout << "------------" << endl
                 << endl;
     }
-    ImageData data = {fichier.path().string(),found,0, pixelWidth,0,0};
     datas.push_back(data);
   }
   auto end0 = std::chrono::high_resolution_clock::now();
+  std::cout << "Nombre de fichier du repertoire: " << datas.size() << endl;
   std::cout << "Nombre de fichier traite(s): " << nbFichierTraite << endl;
-  std::cout << "Nombre de fichi: " << datas.size() << endl;
-  
+
   std::cout << "Nombre de pattern trouve(s): " << nbPatternTrouve << endl;
   std::chrono::duration<double> elapsed0 = end0 - start0;
   std::cout << "Temps d'execution total: " << elapsed0.count() << "sec." << endl;

@@ -11,6 +11,25 @@
 
 using namespace cv;
 
+struct ImageData
+{
+  std::string FileName;
+  bool mireTrouvee;
+  int nbCarresMire;
+  int nbCarresDetectes;
+  double moyenneLongueurCote_Pixels;
+  double medianeLongueurCote_Pixels;
+  double minLongueurCote_Pixels;
+  double maxLongueurCote_Pixels;
+  double ecartTypeLongueurCote_Pixels;
+  int nombreCarresDetectesSansExtremes;
+  double moyenneLongueurCoteSansExtremes_Pixels;
+  double medianeLongueurCoteSansExtremes_Pixels;
+  double minLongueurCoteSansExtremes_Pixels;
+  double maxLongueurCoteSansExtremes_Pixels;
+  double ecartTypeLongueurCoteSansExtremes_Pixels;
+};
+
 bool compareByX(const Point& p1, const Point& p2);
 
 bool compareByX2(const Point& p1, const Point& p2);

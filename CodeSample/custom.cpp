@@ -63,6 +63,56 @@ double moyenneSansExtremes(std::vector<int> valeurs)
     }
     return somme / (nbValeurs - 2 * nbElimines); // Moyenne des valeurs restantes
 }
+
+std::vector<int> supprimer_extremes(std::vector<int> v, double pourcentage)
+{
+    int n = v.size();
+    int nb_elem_extremes = static_cast<int>(pourcentage / 100.0 * n);
+
+    std::sort(v.begin(), v.end()); // trier le vecteur
+
+    v.erase(v.begin(), v.begin() + nb_elem_extremes); // supprimer les éléments extrêmes inférieurs
+    v.erase(v.end() - nb_elem_extremes, v.end()); // supprimer les éléments extrêmes supérieurs
+
+    return v;
+}
+
+double mediane(std::vector<int> v)
+{
+    size_t n = v.size();
+    std::sort(v.begin(), v.end());
+    if (n % 2 == 0)
+    {
+        return static_cast<double>(v[n/2 - 1] + v[n/2]) / 2.0;
+    }
+    else
+    {
+        return static_cast<double>(v[n/2]);
+    }
+}
+
+int minimumV(std::vector<int> v){
+    return *std::min_element(v.begin(), v.end());
+}
+
+int maximumV(std::vector<int> v){
+    return *std::max_element(v.begin(), v.end());
+}
+
+double ecart_type(std::vector<int> v)
+{
+    double moyenne = static_cast<double>(std::accumulate(v.begin(), v.end(), 0)) / static_cast<double>(v.size());
+
+    double variance = 0.0;
+    for (int i = 0; i < v.size(); i++)
+    {
+        variance += std::pow(static_cast<double>(v[i]) - moyenne, 2);
+    }
+    variance /= static_cast<double>(v.size() - 1);
+
+    return std::sqrt(variance);
+}
+
 //------------------------------------------------------
 
 struct QuadCountour
@@ -159,7 +209,7 @@ public:
 
     bool processQuadsCustom(std::vector<cv::Point2f> &out_corners, int &prev_sqr_size, InputArray image_);
 
-    bool processQuadsCustom2(std::vector<cv::Point2f> &out_corners, int &prev_sqr_size, InputArray image_, const std::string fileName, double *pixelWidth);
+    bool processQuadsCustom2(std::vector<cv::Point2f> &out_corners, int &prev_sqr_size, InputArray image_, const std::string fileName, ImageData *data, int nbDilatation);
 
     void findQuadNeighborsCustom();
 
@@ -1165,7 +1215,7 @@ bool ChessBoardDetector::processQuadsCustom(std::vector<cv::Point2f> &out_corner
     return false;
 }
 
-bool ChessBoardDetector::processQuadsCustom2(std::vector<cv::Point2f> &out_corners, int &prev_sqr_size, InputArray image_, const std::string fileName, double *pixelWidth)
+bool ChessBoardDetector::processQuadsCustom2(std::vector<cv::Point2f> &out_corners, int &prev_sqr_size, InputArray image_, const std::string fileName, ImageData *data, int nbDilatation)
 {
     //------------------------
     Mat img = image_.getMat();
@@ -1282,12 +1332,37 @@ bool ChessBoardDetector::processQuadsCustom2(std::vector<cv::Point2f> &out_corne
 
                 rectangle(imgDebug, hg, bd, Scalar(0, (group_idx * 50) % 255, 255), 8, LINE_8);
             }
+            std::vector<int> lenghtsQuadsX = supprimer_extremes(lenghtsQuads, 10);
 
-            //double moyenne = std::accumulate(lenghtsQuads.begin(), lenghtsQuads.end(), 0.0) / lenghtsQuads.size();
-            double moyenne = moyenneSansExtremes(lenghtsQuads);
-            //std::cout << fileName << ": " << moyenne << endl;
-            *pixelWidth = moyenne;
+            double moyenne = std::accumulate(lenghtsQuads.begin(), lenghtsQuads.end(), 0.0) / lenghtsQuads.size();
+            double med = mediane(lenghtsQuads);
+            int minLongueur = minimumV(lenghtsQuads);
+            int maxLongueur = maximumV(lenghtsQuads);
+            double ecartTypeLongueur = ecart_type(lenghtsQuads);
+            int nbCarreSansXtreme = lenghtsQuadsX.size();
+            double moyenneSansXtreme = std::accumulate(lenghtsQuadsX.begin(), lenghtsQuadsX.end(), 0.0) / lenghtsQuadsX.size();
+            double medSansXtreme = mediane(lenghtsQuadsX);
+            int minLongueurSansXtreme = minimumV(lenghtsQuadsX);
+            int maxLongueurSansXtreme = maximumV(lenghtsQuadsX);
+            double ecartTypeLongueurSansXtreme = ecart_type(lenghtsQuadsX);
             found = true;
+
+
+            int k = 3 + 2 * (nbDilatation);
+            data->mireTrouvee = found;
+            data->nbCarresDetectes = count;
+            data->moyenneLongueurCote_Pixels = moyenne + k - 1;
+            data->medianeLongueurCote_Pixels = med + k - 1;
+            data->minLongueurCote_Pixels = minLongueur;
+            data->maxLongueurCote_Pixels = maxLongueur;
+            data->ecartTypeLongueurCote_Pixels = ecartTypeLongueur;
+            data->nombreCarresDetectesSansExtremes = nbCarreSansXtreme;
+            data->moyenneLongueurCoteSansExtremes_Pixels = moyenneSansXtreme + k - 1;
+            data->medianeLongueurCoteSansExtremes_Pixels = medSansXtreme + k - 1;
+            data->minLongueurCoteSansExtremes_Pixels = minLongueurSansXtreme;
+            data->maxLongueurCoteSansExtremes_Pixels = maxLongueurSansXtreme;
+            data->ecartTypeLongueurCoteSansExtremes_Pixels = ecartTypeLongueurSansXtreme;
+            
             break;
         }
     }
