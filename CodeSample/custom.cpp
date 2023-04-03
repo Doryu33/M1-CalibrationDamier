@@ -209,7 +209,7 @@ public:
 
     bool processQuadsCustom(std::vector<cv::Point2f> &out_corners, int &prev_sqr_size, InputArray image_);
 
-    bool processQuadsCustom2(std::vector<cv::Point2f> &out_corners, int &prev_sqr_size, InputArray image_, const std::string fileName, ImageData *data, int nbDilatation);
+    bool processQuadsCustom2(std::vector<cv::Point2f> &out_corners, int &prev_sqr_size, InputArray image_, const std::string fileName, ImageData *data, int nbDilatation, bool debug);
 
     void findQuadNeighborsCustom();
 
@@ -1215,7 +1215,7 @@ bool ChessBoardDetector::processQuadsCustom(std::vector<cv::Point2f> &out_corner
     return false;
 }
 
-bool ChessBoardDetector::processQuadsCustom2(std::vector<cv::Point2f> &out_corners, int &prev_sqr_size, InputArray image_, const std::string fileName, ImageData *data, int nbDilatation)
+bool ChessBoardDetector::processQuadsCustom2(std::vector<cv::Point2f> &out_corners, int &prev_sqr_size, InputArray image_, const std::string fileName, ImageData *data, int nbDilatation, bool debug = false)
 {
     //------------------------
     Mat img = image_.getMat();
@@ -1366,11 +1366,12 @@ bool ChessBoardDetector::processQuadsCustom2(std::vector<cv::Point2f> &out_corne
             break;
         }
     }
-
-    namedWindow(fileName, WINDOW_NORMAL);
-    cv::imshow(fileName, imgDebug);
-    cv::resizeWindow(fileName, 600, 600);
-
+    if(debug){
+        namedWindow(fileName, WINDOW_NORMAL);
+        cv::imshow(fileName, imgDebug);
+        cv::resizeWindow(fileName, 600, 600);
+    }
+    
     return found;
 }
 

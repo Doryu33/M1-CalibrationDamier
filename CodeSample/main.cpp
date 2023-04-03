@@ -139,7 +139,7 @@ ImageData calculeEchelleDamier(const std::string &fileName, const int pattern[2]
 
     detector.generateQuadsCustom(binary, 0);
 
-    bool found = detector.processQuadsCustom2(out_corners, prev_sqr_size, binary, fileName, &data, i);
+    bool found = detector.processQuadsCustom2(out_corners, prev_sqr_size, binary, fileName, &data, i, debug);
 
     // Si on a trouvé un pattern qui corresponds, on arrête les itérationsé
     if (found)
@@ -162,12 +162,12 @@ int main(int argc, const char **argv)
 
   // calculeEchelleDamier("../Data/OLD/D01-L4-BBF-4.jpg", CHECKERBOARD, true);
 
-  const std::string dossier = "../Data/OLD/";
+  const std::string dossier = "/home/alex/GUEST_SHARE/MesureManuel/Douglas_parc";
   auto start0 = std::chrono::high_resolution_clock::now();
   for (const auto &fichier : std::filesystem::directory_iterator(dossier))
   {
     ImageData data = {};
-    if (fichier.path().extension() == ".jpg" || fichier.path().extension() == ".JPG")
+    if (fichier.path().extension() == ".jpg" || fichier.path().extension() == ".JPG" || fichier.path().extension() == ".jpeg")
     {
       found = 0;
       std::cout << "------------" << endl
