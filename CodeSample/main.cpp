@@ -16,6 +16,7 @@ using namespace std;
 //  Defining the dimensions of checkerboard
 // int CHECKERBOARD[2]{3,24};
 int CHECKERBOARD[2]{1, 24};
+int MINQUAD = 12;
 
 void afficherImageData(const ImageData& imageData)
 {
@@ -139,7 +140,12 @@ ImageData calculeEchelleDamier(const std::string &fileName, const int pattern[2]
 
     detector.generateQuadsCustom(binary, 0);
 
-    bool found = detector.processQuadsCustom2(out_corners, prev_sqr_size, binary, fileName, &data, i, debug);
+    if (debug)
+    {
+      afficherImage(binary, "GenerateQuad");
+    }
+
+    bool found = detector.processQuadsCustom2(out_corners, prev_sqr_size, binary, fileName, &data, i, MINQUAD ,debug);
 
     // Si on a trouvé un pattern qui corresponds, on arrête les itérationsé
     if (found)
@@ -160,9 +166,7 @@ int main(int argc, const char **argv)
 
   std::vector<ImageData> datas;
 
-  // calculeEchelleDamier("../Data/OLD/D01-L4-BBF-4.jpg", CHECKERBOARD, true);
-
-  const std::string dossier = "/home/alex/GUEST_SHARE/MesureManuel/Douglas_parc";
+  const std::string dossier = "/home/alex/Images";
   auto start0 = std::chrono::high_resolution_clock::now();
   for (const auto &fichier : std::filesystem::directory_iterator(dossier))
   {
@@ -173,7 +177,7 @@ int main(int argc, const char **argv)
       std::cout << "------------" << endl
                 << "FICHIER: " << fichier.path().string() << endl;
       auto start = std::chrono::high_resolution_clock::now();
-      data = calculeEchelleDamier(fichier.path().string(), CHECKERBOARD, false);
+      data = calculeEchelleDamier(fichier.path().string(), CHECKERBOARD, true);
       auto end = std::chrono::high_resolution_clock::now();
       if (!data.mireTrouvee)
       {
