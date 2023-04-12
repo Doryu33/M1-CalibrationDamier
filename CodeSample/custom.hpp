@@ -30,6 +30,16 @@ struct ImageData
   double ecartTypeLongueurCoteSansExtremes_Pixels;
 };
 
+struct QuadData
+{
+  int idQuad;
+  Point hg;
+  Point hd;
+  Point bd; 
+  Point bg;
+};
+
+
 bool compareByX(const Point& p1, const Point& p2);
 
 bool compareByX2(const Point& p1, const Point& p2);

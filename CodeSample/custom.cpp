@@ -209,7 +209,7 @@ public:
 
     bool processQuadsCustom(std::vector<cv::Point2f> &out_corners, int &prev_sqr_size, InputArray image_);
 
-    bool processQuadsCustom2(std::vector<cv::Point2f> &out_corners, int &prev_sqr_size, InputArray image_, const std::string fileName, ImageData *data, int nbDilatation, int nbminquad, bool debug);
+    bool processQuadsCustom2(std::vector<cv::Point2f> &out_corners, int &prev_sqr_size, InputArray image_, const std::string fileName, ImageData *data, std::vector<QuadData> *imageQuadsData , int nbDilatation, int nbminquad, bool debug);
 
     void findQuadNeighborsCustom();
 
@@ -1215,7 +1215,7 @@ bool ChessBoardDetector::processQuadsCustom(std::vector<cv::Point2f> &out_corner
     return false;
 }
 
-bool ChessBoardDetector::processQuadsCustom2(std::vector<cv::Point2f> &out_corners, int &prev_sqr_size, InputArray image_, const std::string fileName, ImageData *data, int nbDilatation,int nbminquad ,bool debug = false)
+bool ChessBoardDetector::processQuadsCustom2(std::vector<cv::Point2f> &out_corners, int &prev_sqr_size, InputArray image_, const std::string fileName, ImageData *data, std::vector<QuadData> *imageQuadsData,int nbDilatation,int nbminquad ,bool debug = false)
 {
     //------------------------
     Mat img = image_.getMat();
@@ -1254,6 +1254,7 @@ bool ChessBoardDetector::processQuadsCustom2(std::vector<cv::Point2f> &out_corne
         //-------------
         std::vector<int> lenght;
         std::vector<int> lenghtsQuads;
+        
         int l = 0;
         int sum = 0;
         float avg = 0;
@@ -1263,7 +1264,7 @@ bool ChessBoardDetector::processQuadsCustom2(std::vector<cv::Point2f> &out_corne
 
             // std::cout << "group_idx: " << group_idx << endl;
             // std::cout << "count = " << count << endl;
-            for (size_t i = 0; i < quad_group.size(); i++)
+            for (int i = 0; i < quad_group.size(); i++)
             {
                 // Les points sont dans le sens Horaire
                 Point hg = quad_group[i]->corners[0]->pt;
@@ -1327,9 +1328,11 @@ bool ChessBoardDetector::processQuadsCustom2(std::vector<cv::Point2f> &out_corne
 
                 avg = ((lenght[0] + lenght[1] + lenght[2] + lenght[3]) / 4.f);
                 lenghtsQuads.push_back(avg);
-
                 //----
-
+                //-Ajout pour le fichier csv de l'image
+                QuadData qd = {i,hg,hd,bd,bg};
+                imageQuadsData->push_back(qd);
+                //----
                 rectangle(imgDebug, hg, bd, Scalar(0, (group_idx * 50) % 255, 255), 8, LINE_8);
             }
             std::vector<int> lenghtsQuadsX = supprimer_extremes(lenghtsQuads, 10);

@@ -9,6 +9,7 @@
 #include <iostream>
 #include <string>
 #include <filesystem>
+#include <libgen.h>
 
 using namespace cv;
 using namespace std;
@@ -18,7 +19,7 @@ using namespace std;
 int CHECKERBOARD[2]{1, 24};
 int MINQUAD = 12;
 
-void afficherImageData(const ImageData& imageData)
+void afficherImageData(const ImageData &imageData)
 {
   std::cout << "FileName: " << imageData.FileName << std::endl;
   std::cout << "mireTrouvee: " << imageData.mireTrouvee << std::endl;
@@ -44,23 +45,23 @@ void ecrireCSV(const std::vector<ImageData> &donnees, const std::string &nomFich
   std::ofstream fichier(dossierResultats + "/" + nomFichier); // chemin complet du fichier
   if (fichier.is_open())
   {
-    //Écriture de l'en-tête CSV
+    // Écriture de l'en-tête CSV
     fichier << "nomImage;mireTrouvee;nombreCarresMire;nombreCarresDetectes;moyenneLongueurCote_Pixels;medianeLongueurCote_Pixels;minLongueurCote_Pixels;maxLongueurCote_Pixels;ecartTypeLongueurCote_Pixels;nombreCarresDetectesSansExtremes;moyenneLongueurCoteSansExtremes_Pixels;medianeLongueurCoteSansExtremes_Pixels;minLongueurCoteSansExtremes_Pixels;maxLongueurCoteSansExtremes_Pixels;ecartTypeLongueurCoteSansExtremes_Pixels \n";
     for (const auto &donnee : donnees)
     {
-      fichier << donnee.FileName << ";" << (donnee.mireTrouvee ? "Oui" : "Non") 
-      << ";" << donnee.nbCarresMire << ";" << donnee.nbCarresDetectes
-      << ";" << donnee.moyenneLongueurCote_Pixels
-      << ";" << donnee.medianeLongueurCote_Pixels
-      << ";" << donnee.minLongueurCote_Pixels
-      << ";" << donnee.maxLongueurCote_Pixels
-      << ";" << donnee.ecartTypeLongueurCote_Pixels
-      << ";" << donnee.nombreCarresDetectesSansExtremes
-      << ";" << donnee.moyenneLongueurCoteSansExtremes_Pixels
-      << ";" << donnee.medianeLongueurCoteSansExtremes_Pixels
-      << ";" << donnee.minLongueurCoteSansExtremes_Pixels
-      << ";" << donnee.maxLongueurCoteSansExtremes_Pixels
-      << ";" << donnee.ecartTypeLongueurCoteSansExtremes_Pixels << "\n";
+      fichier << donnee.FileName << ";" << (donnee.mireTrouvee ? "Oui" : "Non")
+              << ";" << donnee.nbCarresMire << ";" << donnee.nbCarresDetectes
+              << ";" << donnee.moyenneLongueurCote_Pixels
+              << ";" << donnee.medianeLongueurCote_Pixels
+              << ";" << donnee.minLongueurCote_Pixels
+              << ";" << donnee.maxLongueurCote_Pixels
+              << ";" << donnee.ecartTypeLongueurCote_Pixels
+              << ";" << donnee.nombreCarresDetectesSansExtremes
+              << ";" << donnee.moyenneLongueurCoteSansExtremes_Pixels
+              << ";" << donnee.medianeLongueurCoteSansExtremes_Pixels
+              << ";" << donnee.minLongueurCoteSansExtremes_Pixels
+              << ";" << donnee.maxLongueurCoteSansExtremes_Pixels
+              << ";" << donnee.ecartTypeLongueurCoteSansExtremes_Pixels << "\n";
     }
     fichier.close(); // Fermeture du fichier
     std::cout << "Les données ont été écrites dans le fichier " << nomFichier << std::endl;
@@ -69,6 +70,44 @@ void ecrireCSV(const std::vector<ImageData> &donnees, const std::string &nomFich
   {
     std::cerr << "Impossible d'ouvrir le fichier " << nomFichier << " pour écriture." << std::endl;
   }
+}
+
+void ecrireCSV2(const std::string& nomFichier, const std::vector<QuadData>& quads)
+{
+    // Extraire le nom de fichier sans le chemin ni l'extension
+    char* nomFichierSansChemin = basename(const_cast<char*>(nomFichier.c_str()));
+    std::string nomFichierSansExtension = std::string(nomFichierSansChemin).substr(0, std::string(nomFichierSansChemin).find_last_of("."));
+
+    //Créer le chemin dossier
+    std::string cheminDossier = "../Data/Results/";
+    std::filesystem::create_directories(cheminDossier);
+
+    // Créer le chemin complet du fichier en concaténant le nom de fichier et le chemin vers le dossier
+    std::string cheminFichier = cheminDossier + nomFichierSansExtension + ".csv";
+    
+    // Ouvrir le fichier en mode écriture
+    std::ofstream fichier(cheminFichier);
+    
+    // Vérifier si le fichier a été ouvert correctement
+    if (!fichier.is_open()) {
+        std::cerr << "Impossible d'ouvrir le fichier " << cheminFichier << std::endl;
+        return;
+    }
+    
+    // Écrire l'en-tête du fichier
+    fichier << "idQuad;hg.x;hg.y;hd.x;hd.y;bd.x;bd.y;bg.x;bg.y\n";
+    
+    // Écrire les données de chaque QuadData dans le fichier
+    for (const auto& quad : quads) {
+        fichier << quad.idQuad << ";"
+                << quad.hg.x << ";" << quad.hg.y << ";"
+                << quad.hd.x << ";" << quad.hd.y << ";"
+                << quad.bd.x << ";" << quad.bd.y << ";"
+                << quad.bg.x << ";" << quad.bg.y << "\n";
+    }
+    
+    // Fermer le fichier
+    fichier.close();
 }
 
 // Permet d'afficher des images sur des fenêtres différentes
@@ -92,9 +131,11 @@ ImageData calculeEchelleDamier(const std::string &fileName, const int pattern[2]
   // Constantes
   const int min_dilations = 0;
   const int max_dilations = 3;
+  
   // Variables
   bool found = false;
-  ImageData data = {fileName,false,0,0,0,0,0,0,0,0,0,0,0,0,0};
+  ImageData data = {fileName, false, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+  std::vector<QuadData> imageQuadsData;
   double pixelWidth = -1;
   std::vector<cv::Point2f> out_corners;
   int prev_sqr_size = 0;
@@ -120,53 +161,68 @@ ImageData calculeEchelleDamier(const std::string &fileName, const int pattern[2]
 
   // On binarise l'image.
   Mat binary = gray.clone();
-  int t = 127;
+  int t = 80;
 
-  threshold(gray, binary, t, 255, 0);
-
-  if (debug)
+  while (t < 170 && !found)
   {
-    afficherImage(binary, "Binarisation");
-  }
-  // On teste plusieurs niveaux de dilatation.
-  for (size_t i = min_dilations; i < max_dilations; i++)
-  {
-    std::cout << "Dilatation = " << i << endl;
-    dilate(binary, binary, Mat(), Point(-1, -1), 1);
-    if (debug)
-    {
-      afficherImage(binary, "Dilatation");
-    }
-
-    detector.generateQuadsCustom(binary, 0);
+    imageQuadsData.clear();
+    std::cout << "FoundW = " << found << endl;
+    threshold(gray, binary, t, 255, 0);
+    std::cout << "Threshold = " << t << endl;
 
     if (debug)
     {
-      afficherImage(binary, "GenerateQuad");
+      afficherImage(binary, "Binarisation");
     }
-
-    bool found = detector.processQuadsCustom2(out_corners, prev_sqr_size, binary, fileName, &data, i, MINQUAD ,debug);
-
-    // Si on a trouvé un pattern qui corresponds, on arrête les itérationsé
-    if (found)
+    // On teste plusieurs niveaux de dilatation.
+    for (size_t i = min_dilations; i < max_dilations; i++)
     {
-      break;
+      std::cout << "Dilatation = " << i << endl;
+      dilate(binary, binary, Mat(), Point(-1, -1), 1);
+      if (debug)
+      {
+        afficherImage(binary, "Dilatation");
+      }
+
+      detector.generateQuadsCustom(binary, 0);
+
+      if (debug)
+      {
+        afficherImage(binary, "GenerateQuad");
+      }
+
+      bool found = detector.processQuadsCustom2(out_corners, prev_sqr_size, binary, fileName, &data, &imageQuadsData, i, MINQUAD, debug);
+
+      // Si on a trouvé un pattern qui corresponds, on arrête les itérations
+      if (found)
+      {
+        std::cout << "Found?" << found << endl;
+        break;
+      }
     }
+    t = t + 45;
   }
 
+  //Ne prends pas en compte les dilatations.
+  //Les coordonnées sont donc un peu faussée.
+  ecrireCSV2(data.FileName, imageQuadsData);
   return data;
 }
 
 int main(int argc, const char **argv)
 {
+  // Variables
   bool found = 0;
   double pixelWidth = -1;
   int nbFichierTraite = 0;
   int nbPatternTrouve = 0;
 
+  // Vecteur qui va contenir les datas des images (voir structure plus haut)
   std::vector<ImageData> datas;
 
+  // Repertoire qui contient les images
   const std::string dossier = "/home/alex/Images";
+  // Pour avoir un timer
   auto start0 = std::chrono::high_resolution_clock::now();
   for (const auto &fichier : std::filesystem::directory_iterator(dossier))
   {
