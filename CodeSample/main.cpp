@@ -175,7 +175,7 @@ ImageData calculeEchelleDamier(const std::string &fileName, const int pattern[2]
       afficherImage(binary, "Binarisation");
     }
     // On teste plusieurs niveaux de dilatation.
-    for (size_t i = min_dilations; i < max_dilations; i++)
+    for (size_t i = min_dilations; i < max_dilations && !found; i++)
     {
       std::cout << "Dilatation = " << i << endl;
       dilate(binary, binary, Mat(), Point(-1, -1), 1);
@@ -191,14 +191,7 @@ ImageData calculeEchelleDamier(const std::string &fileName, const int pattern[2]
         afficherImage(binary, "GenerateQuad");
       }
 
-      bool found = detector.processQuadsCustom2(out_corners, prev_sqr_size, binary, fileName, &data, &imageQuadsData, i, MINQUAD, debug);
-
-      // Si on a trouvé un pattern qui corresponds, on arrête les itérations
-      if (found)
-      {
-        std::cout << "Found?" << found << endl;
-        break;
-      }
+      found = detector.processQuadsCustom2(out_corners, prev_sqr_size, binary, fileName, &data, &imageQuadsData, i, MINQUAD, debug);
     }
     t = t + 45;
   }
