@@ -181,10 +181,8 @@ ImageData calculeEchelleDamier(const std::string &fileName, const int pattern[2]
   while (t < 170 && !found)
   {
     imageQuadsData.clear();
-    std::cout << "FoundW = " << found << endl;
     threshold(gray, binary, t, 255, 0);
     std::cout << "Threshold = " << t << endl;
-
     if (debug)
     {
       afficherImage(binary, "Binarisation");

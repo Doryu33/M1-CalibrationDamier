@@ -1385,7 +1385,10 @@ bool ChessBoardDetector::findTarget(std::vector<cv::Point2f> &out_corners, Input
                     rectangle(imgDebug, hg, bd, Scalar(0, (group_idx * 50) % 255, 255), 8, LINE_8);
                 }
             }
-            std::cout << "NOMBRE DE QUAD: " << lenghtsQuads.size() << std::endl;
+            if(debug){
+                std::cout << "NOMBRE DE QUAD TROUVES: " << lenghtsQuads.size() << "/" << nbminquad << std::endl;
+            }
+            
             if(lenghtsQuads.size() > nbminquad){
                 found = true;
             }
