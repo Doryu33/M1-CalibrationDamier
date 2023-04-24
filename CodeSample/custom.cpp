@@ -47,9 +47,9 @@ std::pair<Point, Point> getBiggestXPoints(const std::vector<Point> &points)
 
 /**
  * @brief Permet de retirer les X% extremes d'un vecteur et d'en retourner la moyenne.
- * 
- * @param valeurs 
- * @return double La moyenne 
+ *
+ * @param valeurs
+ * @return double La moyenne
  */
 double moyenneSansExtremes(std::vector<int> valeurs)
 {
@@ -72,7 +72,7 @@ std::vector<int> supprimer_extremes(std::vector<int> v, double pourcentage)
     std::sort(v.begin(), v.end()); // trier le vecteur
 
     v.erase(v.begin(), v.begin() + nb_elem_extremes); // supprimer les éléments extrêmes inférieurs
-    v.erase(v.end() - nb_elem_extremes, v.end()); // supprimer les éléments extrêmes supérieurs
+    v.erase(v.end() - nb_elem_extremes, v.end());     // supprimer les éléments extrêmes supérieurs
 
     return v;
 }
@@ -83,19 +83,21 @@ double mediane(std::vector<int> v)
     std::sort(v.begin(), v.end());
     if (n % 2 == 0)
     {
-        return static_cast<double>(v[n/2 - 1] + v[n/2]) / 2.0;
+        return static_cast<double>(v[n / 2 - 1] + v[n / 2]) / 2.0;
     }
     else
     {
-        return static_cast<double>(v[n/2]);
+        return static_cast<double>(v[n / 2]);
     }
 }
 
-int minimumV(std::vector<int> v){
+int minimumV(std::vector<int> v)
+{
     return *std::min_element(v.begin(), v.end());
 }
 
-int maximumV(std::vector<int> v){
+int maximumV(std::vector<int> v)
+{
     return *std::max_element(v.begin(), v.end());
 }
 
@@ -111,6 +113,37 @@ double ecart_type(std::vector<int> v)
     variance /= static_cast<double>(v.size() - 1);
 
     return std::sqrt(variance);
+}
+
+// Permet de verifier si les quatres longueurs represente un carré ou non.
+double mean(int l1, int l2, int l3, int l4)
+{
+    return static_cast<double>(l1 + l2 + l3 + l4) / 4.0;
+}
+
+double variance(int l1, int l2, int l3, int l4)
+{
+    double m = mean(l1, l2, l3, l4);
+    return ((l1 - m) * (l1 - m) + (l2 - m) * (l2 - m) + (l3 - m) * (l3 - m) + (l4 - m) * (l4 - m)) / 4.0;
+}
+
+bool isSquare(int l1, int l2, int l3, int l4)
+{
+    //Constante de tolerance pour les carrés.
+    const double threshhold_percentage = 0.1;
+    double m = mean(l1, l2, l3, l4);
+    double var = variance(l1, l2, l3, l4);
+    double threshold = m * threshhold_percentage;
+
+    if (std::abs(l1 - m) > threshold || std::abs(l2 - m) > threshold ||
+        std::abs(l3 - m) > threshold || std::abs(l4 - m) > threshold)
+    {
+        return false;
+    }
+
+    double ratio = static_cast<double>(l1) / m;
+    return std::abs(ratio - 1.0) < threshhold_percentage && std::abs(static_cast<double>(l2) / m - 1.0) < threshhold_percentage &&
+           std::abs(static_cast<double>(l3) / m - 1.0) < threshhold_percentage && std::abs(static_cast<double>(l4) / m - 1.0) < threshhold_percentage;
 }
 
 //------------------------------------------------------
@@ -209,7 +242,7 @@ public:
 
     bool processQuadsCustom(std::vector<cv::Point2f> &out_corners, int &prev_sqr_size, InputArray image_);
 
-    bool processQuadsCustom2(std::vector<cv::Point2f> &out_corners, int &prev_sqr_size, InputArray image_, const std::string fileName, ImageData *data, std::vector<QuadData> *imageQuadsData , int nbDilatation, int nbminquad, bool debug);
+    bool findTarget(std::vector<cv::Point2f> &out_corners, InputArray image_, const std::string fileName, ImageData *data, std::vector<QuadData> *imageQuadsData, int nbDilatation, int nbminquad, bool debug);
 
     void findQuadNeighborsCustom();
 
@@ -1215,7 +1248,21 @@ bool ChessBoardDetector::processQuadsCustom(std::vector<cv::Point2f> &out_corner
     return false;
 }
 
-bool ChessBoardDetector::processQuadsCustom2(std::vector<cv::Point2f> &out_corners, int &prev_sqr_size, InputArray image_, const std::string fileName, ImageData *data, std::vector<QuadData> *imageQuadsData,int nbDilatation,int nbminquad ,bool debug = false)
+/**
+ * @brief Fonction utilisée dans le programme principale. Permet de chercher la mire sur l'image.
+ *
+ * @param out_corners Collection de <Point2f> qui représente les points situés dans les coins de chaques carrés
+ * @param image_ L'image a analyser
+ * @param fileName Nom du fichier (Pour la fenetre de DEBUG)
+ * @param data Structure de type ImageData contenant les informations désirées sur l'image
+ * @param imageQuadsData Vecteur de type QuadsData qui permet de stocker les informations de chaques quads.
+ * @param nbDilatation Nombre de fois ou l'image utilisee a été dilaté
+ * @param nbminquad Nombre minimum de quad dans un groupe pour considerer cela comme étant une mire
+ * @param debug Mode de debug
+ * @return true Si une mire a été trouvée.
+ * @return false False sinon
+ */
+bool ChessBoardDetector::findTarget(std::vector<cv::Point2f> &out_corners, InputArray image_, const std::string fileName, ImageData *data, std::vector<QuadData> *imageQuadsData, int nbDilatation, int nbminquad, bool debug = false)
 {
     //------------------------
     Mat img = image_.getMat();
@@ -1240,9 +1287,10 @@ bool ChessBoardDetector::processQuadsCustom2(std::vector<cv::Point2f> &out_corne
     std::vector<ChessBoardCorner *> corner_group;
     corner_group.reserve(max_quad_buf_size * 4);
 
+    // On parcourt tout les groupes de quads
     for (int group_idx = 0;; group_idx++)
     {
-
+        // On cherche les quads connectées entre eux
         findConnectedQuadsCustom(quad_group, group_idx);
         if (quad_group.empty())
         {
@@ -1250,20 +1298,22 @@ bool ChessBoardDetector::processQuadsCustom2(std::vector<cv::Point2f> &out_corne
             break;
         }
         int count = (int)quad_group.size();
-
         //-------------
+        // Definition de variables pour la suite
         std::vector<int> lenght;
         std::vector<int> lenghtsQuads;
-        
-        int l = 0;
+        int l1 = 0;
+        int l2 = 0;
+        int l3 = 0;
+        int l4 = 0;
         int sum = 0;
         float avg = 0;
-
+        bool falseDetection = false;
+        //------------
+        // Si il y a moins de quad que le minimum voulu dans la mire, on ne traite pas ce groupe
         if (count > nbminquad)
         {
-
-            // std::cout << "group_idx: " << group_idx << endl;
-            // std::cout << "count = " << count << endl;
+            // On parcourt chaque quad du groupe
             for (int i = 0; i < quad_group.size(); i++)
             {
                 // Les points sont dans le sens Horaire
@@ -1271,10 +1321,8 @@ bool ChessBoardDetector::processQuadsCustom2(std::vector<cv::Point2f> &out_corne
                 Point hd = quad_group[i]->corners[1]->pt;
                 Point bd = quad_group[i]->corners[2]->pt;
                 Point bg = quad_group[i]->corners[3]->pt;
-
-                //----
+                //---- On va trier les points dans le sens Horaire pour garder le même sens.
                 std::vector<Point> points = {hg, hd, bg, bd};
-
                 auto smallestXPoints = getSmallestXPoints(points);
                 if (smallestXPoints.first.y < smallestXPoints.second.y)
                 {
@@ -1306,75 +1354,82 @@ bool ChessBoardDetector::processQuadsCustom2(std::vector<cv::Point2f> &out_corne
                 // On vide le vector
                 lenght.clear();
 
-                // std::cout << "Quad: "<< j << endl;
-
                 // Longueur de 0 a 1
-                l = abs(hg.x - hd.x);
-                lenght.push_back(l);
+                l1 = abs(hg.x - hd.x);
+                lenght.push_back(l1);
 
                 // Longueur de 1 a 2
-                l = abs(hd.y - bd.y);
-                lenght.push_back(l);
+                l2 = abs(hd.y - bd.y);
+                lenght.push_back(l2);
 
                 // Longueur de 2 a 3
-                l = abs(bd.x - bg.x);
-                lenght.push_back(l);
+                l3 = abs(bd.x - bg.x);
+                lenght.push_back(l3);
 
                 // Longueur de 3 a 0
-                l = abs(bg.y - hg.y);
-                lenght.push_back(l);
+                l4 = abs(bg.y - hg.y);
+                lenght.push_back(l4);
 
-                lenghtsQuads.push_back(avg);
-
-                avg = ((lenght[0] + lenght[1] + lenght[2] + lenght[3]) / 4.f);
-                lenghtsQuads.push_back(avg);
-                //----
-                //-Ajout pour le fichier csv de l'image
-                QuadData qd = {i,hg,hd,bd,bg};
-                imageQuadsData->push_back(qd);
-                //----
-                rectangle(imgDebug, hg, bd, Scalar(0, (group_idx * 50) % 255, 255), 8, LINE_8);
+                // On va vérifier si les quatres longueurs représente un carré:
+                // IE: il faut que les longueur soient egales a 10% prés
+                // Permet d'éviter les fausses détection avec les mires penchées.
+                if (isSquare(l1, l2, l3, l4))
+                {
+                    //----
+                    //-Ajout pour le fichier csv de l'image
+                    avg = ((lenght[0] + lenght[1] + lenght[2] + lenght[3]) / 4.f);
+                    lenghtsQuads.push_back(avg);
+                    QuadData qd = {i, hg, hd, bd, bg};
+                    imageQuadsData->push_back(qd);
+                    //----
+                    rectangle(imgDebug, hg, bd, Scalar(0, (group_idx * 50) % 255, 255), 8, LINE_8);
+                }
             }
-            std::vector<int> lenghtsQuadsX = supprimer_extremes(lenghtsQuads, 10);
+            std::cout << "NOMBRE DE QUAD: " << lenghtsQuads.size() << std::endl;
+            if(lenghtsQuads.size() > nbminquad){
+                found = true;
+            }
+            if (found)
+            {
+                std::vector<int> lenghtsQuadsX = supprimer_extremes(lenghtsQuads, 10);
+                double moyenne = std::accumulate(lenghtsQuads.begin(), lenghtsQuads.end(), 0.0) / lenghtsQuads.size();
+                double med = mediane(lenghtsQuads);
+                int minLongueur = minimumV(lenghtsQuads);
+                int maxLongueur = maximumV(lenghtsQuads);
+                double ecartTypeLongueur = ecart_type(lenghtsQuads);
+                int nbCarreSansXtreme = lenghtsQuadsX.size();
+                double moyenneSansXtreme = std::accumulate(lenghtsQuadsX.begin(), lenghtsQuadsX.end(), 0.0) / lenghtsQuadsX.size();
+                double medSansXtreme = mediane(lenghtsQuadsX);
+                int minLongueurSansXtreme = minimumV(lenghtsQuadsX);
+                int maxLongueurSansXtreme = maximumV(lenghtsQuadsX);
+                double ecartTypeLongueurSansXtreme = ecart_type(lenghtsQuadsX);
 
-            double moyenne = std::accumulate(lenghtsQuads.begin(), lenghtsQuads.end(), 0.0) / lenghtsQuads.size();
-            double med = mediane(lenghtsQuads);
-            int minLongueur = minimumV(lenghtsQuads);
-            int maxLongueur = maximumV(lenghtsQuads);
-            double ecartTypeLongueur = ecart_type(lenghtsQuads);
-            int nbCarreSansXtreme = lenghtsQuadsX.size();
-            double moyenneSansXtreme = std::accumulate(lenghtsQuadsX.begin(), lenghtsQuadsX.end(), 0.0) / lenghtsQuadsX.size();
-            double medSansXtreme = mediane(lenghtsQuadsX);
-            int minLongueurSansXtreme = minimumV(lenghtsQuadsX);
-            int maxLongueurSansXtreme = maximumV(lenghtsQuadsX);
-            double ecartTypeLongueurSansXtreme = ecart_type(lenghtsQuadsX);
-            found = true;
-
-
-            int k = 3 + 2 * (nbDilatation);
-            data->mireTrouvee = found;
-            data->nbCarresDetectes = count;
-            data->moyenneLongueurCote_Pixels = moyenne + k - 1;
-            data->medianeLongueurCote_Pixels = med + k - 1;
-            data->minLongueurCote_Pixels = minLongueur;
-            data->maxLongueurCote_Pixels = maxLongueur;
-            data->ecartTypeLongueurCote_Pixels = ecartTypeLongueur;
-            data->nombreCarresDetectesSansExtremes = nbCarreSansXtreme;
-            data->moyenneLongueurCoteSansExtremes_Pixels = moyenneSansXtreme + k - 1;
-            data->medianeLongueurCoteSansExtremes_Pixels = medSansXtreme + k - 1;
-            data->minLongueurCoteSansExtremes_Pixels = minLongueurSansXtreme;
-            data->maxLongueurCoteSansExtremes_Pixels = maxLongueurSansXtreme;
-            data->ecartTypeLongueurCoteSansExtremes_Pixels = ecartTypeLongueurSansXtreme;
-            
-            break;
+                // Permet de prendre en compte la dilatation
+                int k = 3 + 2 * (nbDilatation);
+                data->mireTrouvee = found;
+                data->nbCarresDetectes = count;
+                data->moyenneLongueurCote_Pixels = moyenne + k - 1;
+                data->medianeLongueurCote_Pixels = med + k - 1;
+                data->minLongueurCote_Pixels = minLongueur;
+                data->maxLongueurCote_Pixels = maxLongueur;
+                data->ecartTypeLongueurCote_Pixels = ecartTypeLongueur;
+                data->nombreCarresDetectesSansExtremes = nbCarreSansXtreme;
+                data->moyenneLongueurCoteSansExtremes_Pixels = moyenneSansXtreme + k - 1;
+                data->medianeLongueurCoteSansExtremes_Pixels = medSansXtreme + k - 1;
+                data->minLongueurCoteSansExtremes_Pixels = minLongueurSansXtreme;
+                data->maxLongueurCoteSansExtremes_Pixels = maxLongueurSansXtreme;
+                data->ecartTypeLongueurCoteSansExtremes_Pixels = ecartTypeLongueurSansXtreme;
+                break;
+            }
         }
     }
-    if(debug){
+    if (debug)
+    {
         namedWindow(fileName, WINDOW_NORMAL);
         cv::imshow(fileName, imgDebug);
         cv::resizeWindow(fileName, 600, 600);
     }
-    
+
     return found;
 }
 

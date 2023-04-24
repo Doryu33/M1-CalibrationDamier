@@ -1,4 +1,0 @@
-Nombre de fichier du repertoire: 52
-Nombre de fichier traite(s): 52
-Nombre de pattern trouve(s): 47
-Temps d'execution total: 360.812sec.
