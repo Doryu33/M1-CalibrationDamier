@@ -1207,14 +1207,6 @@ bool ChessBoardDetector::processQuadsCustom(std::vector<cv::Point2f> &out_corner
         // On dessine le rectangle autour du groupe de quad
         rectangle(img2, p1, p2, Scalar(0, 0, 255), 8, LINE_8);
 
-        //affichage longueur moyenne des carrés
-        Point p3 = {p1.x + res, p1.y};
-        Point p4 = {p1.x, p1.y+res2};
-        rectangle(img2, p1, p3, Scalar(255,0,0), 8, LINE_8);
-        rectangle(img2, p1, p4, Scalar(0,255,0), 8, LINE_8);
-
-
-
         namedWindow("Image: ProcessQuad", WINDOW_NORMAL);
         cv::imshow("Image: ProcessQuad", img2);
         cv::resizeWindow("Image: ProcessQuad", 600, 600);
